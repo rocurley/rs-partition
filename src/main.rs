@@ -15,8 +15,9 @@ fn main() {
     let n_partitions = string_args[1].parse().expect("Couldn't parse argument");
     let mut input = String::new();
     stdin().read_line(&mut input).expect("Couldn't read from stdin");
-    let elements_result : Result<Vec<i32>, std::num::ParseIntError> = input.trim().split(",").map(|i| i.parse()).collect();
-    let elements = elements_result.expect("Couldn't parse input");
+    let elements_result : Result<Vec<f64>, std::num::ParseFloatError> = input.trim().split(",").map(|i| i.parse()).collect();
+    let mut elements : Vec<i32> = elements_result.expect("Couldn't parse input").into_iter().map(|n| (n * 1000000.) as i32).collect();
+    elements.sort();
     let (partitions, score) = find_best_partitioning(n_partitions, &elements);
     println!("Score: {}", score);
     for partition in partitions {
@@ -57,7 +58,12 @@ fn expand_partitions<T, F>(yield_fn : &mut F, elements : &[T], partitions : &mut
         return;
     }
     let x = elements[0];
-    for i in 0..partitions.len() {
+    'outer: for i in 0..partitions.len() {
+        for j in 0..i {
+            if partitions[i].sum == partitions[j].sum {
+                continue 'outer;
+            }
+        }
         partitions[i].push(x);
         expand_partitions(yield_fn, &elements[1..], partitions);
         partitions[i].pop();
