@@ -1,18 +1,38 @@
 extern crate num;
 
-use num::{zero, Zero, one, One};
+use num::{one, zero, One, Zero};
 use std::convert::From;
 use std::env::args;
 use std::io::stdin;
-use std::iter::{repeat, Iterator, Sum};
-use std::ops::{AddAssign, Sub, SubAssign, Mul};
+use std::iter::{Iterator, Sum};
+use std::ops::{AddAssign, Mul, Sub, SubAssign};
 
 trait Arith:
-    AddAssign + SubAssign + Sub<Output = Self> + Copy + PartialOrd + Ord + Zero + One + Sum<Self> + From<u8> + Mul<Output = Self>
+    AddAssign
+    + SubAssign
+    + Sub<Output = Self>
+    + Copy
+    + PartialOrd
+    + Ord
+    + Zero
+    + One
+    + Sum<Self>
+    + From<u8>
+    + Mul<Output = Self>
 {
 }
 impl<T> Arith for T where
-    T: AddAssign + SubAssign + Sub<Output = T> + Copy + PartialOrd + Ord + Zero + One + Sum<T> + From<u8> + Mul<Output = T>
+    T: AddAssign
+        + SubAssign
+        + Sub<Output = T>
+        + Copy
+        + PartialOrd
+        + Ord
+        + Zero
+        + One
+        + Sum<T>
+        + From<u8>
+        + Mul<Output = T>
 {}
 
 fn main() {
@@ -39,13 +59,15 @@ fn main() {
 
 #[derive(Clone)]
 struct Partition<T: Arith> {
+    index: u8,
     sum: T,
     elements: Vec<T>,
 }
 
 impl<T: Arith> Partition<T> {
-    fn new(capacity: usize) -> Self {
+    fn new(index: u8, capacity: usize) -> Self {
         Partition {
+            index,
             sum: zero(),
             elements: Vec::with_capacity(capacity),
         }
@@ -82,24 +104,41 @@ struct Constants<T: Arith> {
 fn expand_partitions<T: Arith>(
     elements: &[T],
     partitions: &mut [Partition<T>],
-    current_best: & mut (Vec<Partition<T>>, T),
+    current_best: &mut (Vec<Partition<T>>, T),
     constants: Constants<T>,
 ) {
     if elements.len() == 0 {
         consider_partitioning(current_best, partitions);
         return;
     }
-    let largest_sum = partitions.iter().map(|partition| partition.sum).max().expect("partitions is empty");
-    if largest_sum * constants.n_partitions - constants.total >= (*current_best).1 * (constants.n_partitions - one()) {
+    let largest_sum = partitions
+        .iter()
+        .map(|partition| partition.sum)
+        .max()
+        .expect("partitions is empty");
+    if largest_sum * constants.n_partitions - constants.total
+        >= (*current_best).1 * (constants.n_partitions - one())
+    {
         return;
     }
     let x = elements[0];
-    'outer: for i in 0..partitions.len() {
-        for j in 0..i {
-            if partitions[i].sum == partitions[j].sum {
-                continue 'outer;
-            }
-        }
+    let (min_index, mut last_sum): (usize, T) = partitions
+        .iter()
+        .map(|partition| partition.sum)
+        .enumerate()
+        .min_by_key(|&(_, sum)| sum)
+        .expect("partitions is empty");
+    partitions[min_index].push(x);
+    expand_partitions(&elements[1..], partitions, current_best, constants);
+    partitions[min_index].pop();
+    while let Some((i, sum)) = partitions
+        .iter()
+        .map(|partition| partition.sum)
+        .filter(|&sum| sum > last_sum)
+        .enumerate()
+        .min_by_key(|&(_, sum)| sum)
+    {
+        last_sum = sum;
         partitions[i].push(x);
         expand_partitions(&elements[1..], partitions, current_best, constants);
         partitions[i].pop();
@@ -120,8 +159,8 @@ fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
 }
 
 fn find_best_partitioning<T: Arith>(n_partitions: u8, elements: &[T]) -> (Vec<Partition<T>>, T) {
-    let mut partitions: Vec<Partition<T>> = repeat(Partition::new(elements.len()))
-        .take(n_partitions as usize)
+    let mut partitions: Vec<Partition<T>> = (0..n_partitions)
+        .map(|i| Partition::new(i, elements.len()))
         .collect();
     let mut best_partitioning: Vec<Partition<T>> = partitions.clone();
     for el in elements.iter() {
@@ -133,6 +172,11 @@ fn find_best_partitioning<T: Arith>(n_partitions: u8, elements: &[T]) -> (Vec<Pa
         total: elements.iter().map(|x| x.clone()).sum(),
         n_partitions: n_partitions.into(),
     };
-    expand_partitions(elements, partitions.as_mut_slice(),&mut scored_best_partitioning, constants);
+    expand_partitions(
+        elements,
+        partitions.as_mut_slice(),
+        &mut scored_best_partitioning,
+        constants,
+    );
     scored_best_partitioning
 }
