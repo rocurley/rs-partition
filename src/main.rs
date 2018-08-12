@@ -1,4 +1,5 @@
 extern crate num;
+extern crate cpuprofiler;
 
 use num::{one, zero, One, Zero};
 use std::convert::From;
@@ -6,6 +7,7 @@ use std::env::args;
 use std::io::stdin;
 use std::iter::{Iterator, Sum};
 use std::ops::{AddAssign, Mul, Sub, SubAssign};
+use cpuprofiler::PROFILER;
 
 trait Arith:
     AddAssign
@@ -50,7 +52,9 @@ fn main() {
         .map(|n| (n * 1000000.) as i32)
         .collect();
     elements.sort_by_key(|x| -x);
+    PROFILER.lock().unwrap().start("./my-prof.profile").expect("Couldn't start");
     let (partitions, score) = find_best_partitioning(n_partitions, &elements);
+    PROFILER.lock().unwrap().stop().expect("Couldn't stop");
     println!("Score: {}", score);
     for partition in partitions {
         println!("{} : {:?}", partition.sum, partition.elements);

@@ -5,3 +5,4 @@ authors = ["roger <rocurley@gmail.com>"]
 
 [dependencies]
 num = "0.2.0"
+cpuprofiler = "0.0.3"
