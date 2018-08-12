@@ -1,41 +1,16 @@
-extern crate num;
 extern crate cpuprofiler;
+extern crate num;
 
-use num::{one, zero, One, Zero};
+use cpuprofiler::PROFILER;
+use num::{one, zero, Integer};
 use std::convert::From;
 use std::env::args;
 use std::io::stdin;
 use std::iter::{Iterator, Sum};
-use std::ops::{AddAssign, Mul, Sub, SubAssign};
-use cpuprofiler::PROFILER;
+use std::ops::{AddAssign, SubAssign};
 
-trait Arith:
-    AddAssign
-    + SubAssign
-    + Sub<Output = Self>
-    + Copy
-    + PartialOrd
-    + Ord
-    + Zero
-    + One
-    + Sum<Self>
-    + From<u8>
-    + Mul<Output = Self>
-{
-}
-impl<T> Arith for T where
-    T: AddAssign
-        + SubAssign
-        + Sub<Output = T>
-        + Copy
-        + PartialOrd
-        + Ord
-        + Zero
-        + One
-        + Sum<T>
-        + From<u8>
-        + Mul<Output = T>
-{}
+trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum {}
+impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum {}
 
 fn main() {
     let string_args: Vec<String> = args().collect();
@@ -52,7 +27,11 @@ fn main() {
         .map(|n| (n * 1000000.) as i32)
         .collect();
     elements.sort_by_key(|x| -x);
-    PROFILER.lock().unwrap().start("./my-prof.profile").expect("Couldn't start");
+    PROFILER
+        .lock()
+        .unwrap()
+        .start("./my-prof.profile")
+        .expect("Couldn't start");
     let (partitions, score) = find_best_partitioning(n_partitions, &elements);
     PROFILER.lock().unwrap().stop().expect("Couldn't stop");
     println!("Score: {}", score);
@@ -63,15 +42,13 @@ fn main() {
 
 #[derive(Clone)]
 struct Partition<T: Arith> {
-    index: u8,
     sum: T,
     elements: Vec<T>,
 }
 
 impl<T: Arith> Partition<T> {
-    fn new(index: u8, capacity: usize) -> Self {
+    fn new(capacity: usize) -> Self {
         Partition {
-            index,
             sum: zero(),
             elements: Vec::with_capacity(capacity),
         }
@@ -164,7 +141,7 @@ fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
 
 fn find_best_partitioning<T: Arith>(n_partitions: u8, elements: &[T]) -> (Vec<Partition<T>>, T) {
     let mut partitions: Vec<Partition<T>> = (0..n_partitions)
-        .map(|i| Partition::new(i, elements.len()))
+        .map(|_| Partition::new(elements.len()))
         .collect();
     let mut best_partitioning: Vec<Partition<T>> = partitions.clone();
     for el in elements.iter() {
