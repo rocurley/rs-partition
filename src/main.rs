@@ -8,9 +8,10 @@ use std::env::args;
 use std::io::stdin;
 use std::iter::{Iterator, Sum};
 use std::ops::{AddAssign, SubAssign};
+use std::fmt::Debug;
 
-trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum {}
-impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum {}
+trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug {}
+impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug {}
 
 fn main() {
     let string_args: Vec<String> = args().collect();
@@ -36,31 +37,36 @@ fn main() {
     PROFILER.lock().unwrap().stop().expect("Couldn't stop");
     println!("Score: {}", score);
     for partition in partitions {
-        println!("{} : {:?}", partition.sum, partition.elements);
+        partition.print();
     }
 }
 
 #[derive(Clone)]
 struct Partition<T: Arith> {
     sum: T,
-    elements: Vec<T>,
+    length: usize,
+    elements: Box<[T]>,
 }
 
 impl<T: Arith> Partition<T> {
     fn new(capacity: usize) -> Self {
         Partition {
             sum: zero(),
-            elements: Vec::with_capacity(capacity),
+            length: 0,
+            elements: vec!(zero();capacity).into_boxed_slice(),
         }
     }
     fn push(&mut self, x: T) {
         self.sum += x;
-        self.elements.push(x);
+        *&mut self.elements[self.length] = x;
+        self.length +=1;
     }
-    fn pop(&mut self) -> T {
-        let x = self.elements.pop().expect("Popped empty partition");
-        self.sum -= x;
-        x
+    fn pop(&mut self) {
+        self.length -=1;
+        self.sum -= *&self.elements[self.length];
+    }
+    fn print(&self) {
+        println!("{:?} : {:?}", self.sum, &self.elements[0..self.length]);
     }
 }
 
@@ -143,7 +149,9 @@ fn find_best_partitioning<T: Arith>(n_partitions: u8, elements: &[T]) -> (Vec<Pa
     let mut partitions: Vec<Partition<T>> = (0..n_partitions)
         .map(|_| Partition::new(elements.len()))
         .collect();
-    let mut best_partitioning: Vec<Partition<T>> = partitions.clone();
+    let mut best_partitioning: Vec<Partition<T>> = (0..n_partitions)
+        .map(|_| Partition::new(elements.len()))
+        .collect();
     for el in elements.iter() {
         best_partitioning[0].push(el.clone());
     }
