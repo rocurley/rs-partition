@@ -3,6 +3,15 @@ name = "rs-partition"
 version = "0.1.0"
 authors = ["roger <rocurley@gmail.com>"]
 
+[[bin]]
+name = "partition"
+path = "bin/main.rs"
+
+[lib]
+name = "partition_lib"
+path = "src/lib.rs"
+
+
 [dependencies]
 num = "0.2.0"
 cpuprofiler = "0.0.3"

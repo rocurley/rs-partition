@@ -1,5 +1,6 @@
 extern crate cpuprofiler;
 extern crate num;
+extern crate partition_lib;
 
 use cpuprofiler::PROFILER;
 use num::Integer;
@@ -10,11 +11,10 @@ use std::io::{Read, stdin};
 use std::iter::{Iterator, Sum};
 use std::ops::{AddAssign, SubAssign};
 use std::fmt::{Debug, Display};
+use partition_lib::{ckk};
 
 trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display{}
 impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display{}
-
-mod ckk;
 
 fn main() {
     //let string_args: Vec<String> = args().collect();
