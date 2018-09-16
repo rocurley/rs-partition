@@ -81,7 +81,6 @@ pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
 enum Direction {
     Diff,
     Sum,
-    Fill,
 }
 
 fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPartition<T> {
@@ -97,31 +96,28 @@ fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPa
                 match direction {
                     Direction::Diff => first.merge(snd),
                     Direction::Sum => first.merge_rev(snd),
-                    Direction::Fill => {
-                        for p in heap {
-                            snd.merge_rev(p);
-                        }
-                        first.merge(snd);
-                        return first;
-                    }
                 }
                 heap.push(first);
             }
         }
     }
-    panic!("Exhausted directions but heap isn't empty");
+    let mut first = heap.pop().expect("heap is empty");
+    for p in heap {
+        first.merge(p);
+    }
+    return first;
 }
 
-pub fn ckk<T: Arith>(elements: &[T]) -> KKPartition<T> {
+pub fn ckk_old<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best_directions = Vec::with_capacity(elements.len());
     let mut directions = Vec::with_capacity(elements.len());
     let heap = elements.iter().map(|x| x.clone()).collect();
     let mut best = elements.iter().map(|x| x.clone()).sum();
-    ckk_raw(heap, &mut directions, &mut best, &mut best_directions);
+    ckk_raw_old(heap, &mut directions, &mut best, &mut best_directions);
     reconstruct_ckk(elements, best_directions)
 }
 
-fn ckk_raw<T: Arith>(
+fn ckk_raw_old<T: Arith>(
     mut heap: BinaryHeap<T>,
     directions: &mut Vec<Direction>,
     best: &mut T,
@@ -142,30 +138,29 @@ fn ckk_raw<T: Arith>(
                 if *best > best_possible_score {
                     *best = best_possible_score;
                     best_directions.clone_from(directions);
-                    best_directions.push(Direction::Fill);
                 }
                 return;
             }
             let mut new_heap = heap.clone();
             new_heap.push(first - snd);
             directions.push(Direction::Diff);
-            ckk_raw(new_heap, directions, best, best_directions);
+            ckk_raw_old(new_heap, directions, best, best_directions);
             directions.pop();
             directions.push(Direction::Sum);
             heap.push(first + snd);
-            ckk_raw(heap, directions, best, best_directions);
+            ckk_raw_old(heap, directions, best, best_directions);
             directions.pop();
         }
     }
 }
 
-pub fn ckk_2<T: Arith>(elements: &[T]) -> KKPartition<T> {
+pub fn ckk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best_directions = Vec::with_capacity(elements.len());
     let mut directions = Vec::with_capacity(elements.len());
     let mut best = elements.iter().map(|x| x.clone()).sum();
     let mut work_elements = elements.to_vec();
     let sum = elements.iter().cloned().sum();
-    ckk_raw_2(
+    ckk_raw(
         &mut work_elements,
         sum,
         &mut directions,
@@ -175,10 +170,10 @@ pub fn ckk_2<T: Arith>(elements: &[T]) -> KKPartition<T> {
     reconstruct_ckk(elements, best_directions)
 }
 
-// When ckk_raw_2 returns, elements must:
+// When ckk_raw returns, elements must:
 // * Have an unchanged first element.
 // * Otherwise be a permutation of its original value.
-fn ckk_raw_2<T: Arith>(
+fn ckk_raw<T: Arith>(
     elements: &mut [T],
     sum: T,
     directions: &mut Vec<Direction>,
@@ -216,7 +211,6 @@ fn ckk_raw_2<T: Arith>(
         if *best > best_possible_score {
             *best = best_possible_score;
             best_directions.clone_from(directions);
-            best_directions.push(Direction::Fill);
         }
         if *first == original_first {
             return;
@@ -231,7 +225,7 @@ fn ckk_raw_2<T: Arith>(
     }
     directions.push(Direction::Diff);
     tail[0] = *first - snd_val;
-    ckk_raw_2(
+    ckk_raw(
         tail,
         sum - snd_val - snd_val,
         directions,
@@ -241,7 +235,7 @@ fn ckk_raw_2<T: Arith>(
     directions.pop();
     directions.push(Direction::Sum);
     tail[0] = *first + snd_val;
-    ckk_raw_2(tail, sum, directions, best, best_directions);
+    ckk_raw(tail, sum, directions, best, best_directions);
     directions.pop();
     tail[0] = snd_val;
     if *first == original_first {
@@ -270,9 +264,9 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
     match heap.pop() {
         None => {
             if first.score / 2.into() < *upper_bound {
-                let left = ckk(&first.left);
+                let left = ckk_old(&first.left);
                 if (left.score + first.score) / 2.into() < *upper_bound {
-                    let right = ckk(&first.right);
+                    let right = ckk_old(&first.right);
                     let score = (first.score + right.score + left.score) / 2.into();
                     if score < *upper_bound {
                         println!("Found a new bound! {}", score);
@@ -367,7 +361,7 @@ pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk, ckk_raw, ckk_raw_2, rnp};
+    use ckk::{ckk_old, ckk, ckk_raw_old, ckk_raw, rnp};
     use proptest::collection::vec;
     proptest! {
         #[test]
@@ -376,15 +370,29 @@ mod tests {
             let mut directions_1 = Vec::with_capacity(elements.len());
             let heap = elements.iter().map(|x| x.clone()).collect();
             let mut best_1 = elements.iter().map(|x| x.clone()).sum();
-            ckk_raw(heap, &mut directions_1, &mut best_1, &mut best_directions_1);
+            ckk_raw_old(heap, &mut directions_1, &mut best_1, &mut best_directions_1);
             let mut best_directions_2 = Vec::with_capacity(elements.len());
             let mut directions_2 = Vec::with_capacity(elements.len());
             let mut best_2 = elements.iter().map(|x| x.clone()).sum();
             let mut work_elements_2 = elements.to_vec();
             let sum = elements.iter().cloned().sum();
-            ckk_raw_2(&mut work_elements_2, sum, &mut directions_2, &mut best_2, &mut best_directions_2);
+            ckk_raw(&mut work_elements_2, sum, &mut directions_2, &mut best_2, &mut best_directions_2);
             assert_eq!(best_directions_1,  best_directions_2);
        }
+    }
+    proptest! {
+        #[test]
+        fn prop_compare_ckk(ref elements in vec(1i32..100, 2..10)) {
+            let partition_1 = ckk_old(elements);
+            let partition_2 = ckk(elements);
+            assert_eq!(partition_1, partition_2);
+       }
+    }
+    #[test]
+    fn unit_ckk() {
+        let elements = vec![2,3,4,5];
+        let partition = ckk(&elements);
+        assert_eq!(partition.score, 0);
     }
     #[bench]
     fn bench_ckk(b: &mut Bencher) {
@@ -394,8 +402,9 @@ mod tests {
             2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
             537584, 537584, 537584,
         ];
-        b.iter(|| ckk(&elements));
+        b.iter(|| ckk_old(&elements));
     }
+    #[bench]
     fn bench_ckk_2(b: &mut Bencher) {
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
@@ -403,7 +412,7 @@ mod tests {
             2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
             537584, 537584, 537584,
         ];
-        b.iter(|| ckk_2(&elements));
+        b.iter(|| ckk(&elements));
     }
     #[bench]
     fn bench_rnp(b: &mut Bencher) {
