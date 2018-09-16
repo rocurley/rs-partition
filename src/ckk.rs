@@ -185,12 +185,6 @@ fn ckk_raw_2<T: Arith>(
     best: &mut T,
     best_directions: &mut Vec<Direction>,
 ) {
-    println!("========");
-    println!("elements: {:?}", elements);
-    println!("sum: {:?}", sum);
-    println!("directions: {:?}", directions);
-    println!("best: {:?}", best);
-    println!("best_directions: {:?}", best_directions);
     let (first, tail) = elements.split_first_mut().expect("elements is empty");
     let original_first = first.clone();
     let snd_val: T = match tail.split_first_mut() {
@@ -224,7 +218,16 @@ fn ckk_raw_2<T: Arith>(
             best_directions.clone_from(directions);
             best_directions.push(Direction::Fill);
         }
-        return;
+        if *first == original_first {
+            return;
+        }
+        for x in tail {
+            if *x == original_first {
+                swap(first, x);
+                return;
+            }
+        }
+        panic!("Couldn't find the original first");
     }
     directions.push(Direction::Diff);
     tail[0] = *first - snd_val;
@@ -392,6 +395,15 @@ mod tests {
             537584, 537584, 537584,
         ];
         b.iter(|| ckk(&elements));
+    }
+    fn bench_ckk_2(b: &mut Bencher) {
+        let elements = vec![
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
+            537584, 537584, 537584,
+        ];
+        b.iter(|| ckk_2(&elements));
     }
     #[bench]
     fn bench_rnp(b: &mut Bencher) {
