@@ -191,6 +191,7 @@ fn ckk_raw<T: Arith>(
             return;
         }
         Some((snd, rest)) => {
+            //Pull the two largest values to the front
             if *snd > *first {
                 swap(first, snd);
             }
@@ -264,9 +265,9 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
     match heap.pop() {
         None => {
             if first.score / 2.into() < *upper_bound {
-                let left = ckk_old(&first.left);
+                let left = ckk(&first.left);
                 if (left.score + first.score) / 2.into() < *upper_bound {
-                    let right = ckk_old(&first.right);
+                    let right = ckk(&first.right);
                     let score = (first.score + right.score + left.score) / 2.into();
                     if score < *upper_bound {
                         println!("Found a new bound! {}", score);
