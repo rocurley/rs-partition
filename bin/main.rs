@@ -17,8 +17,9 @@ trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + D
 impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display{}
 
 fn main() {
-    //let string_args: Vec<String> = args().collect();
-    //let n_partitions : usize = string_args[1].parse().expect("Couldn't parse argument");
+    /*
+    let string_args: Vec<String> = args().collect();
+    let n_partitions : usize = string_args[1].parse().expect("Couldn't parse argument");
     let mut input = String::new();
     let mut f = File::open("rates").expect("rates not found");
     f
@@ -29,15 +30,26 @@ fn main() {
     let elements: Vec<i32> = elements_result.expect("Couldn't parse input");
     println!("Total weight: {}", elements.iter().sum::<i32>());
     //elements.sort_by_key(|x| -x);
-    /*
     PROFILER
         .lock()
         .unwrap()
         .start("./my-prof.profile")
         .expect("Couldn't start");
-    */
     ckk::ckk(&elements);
-    //let partition = ckk::n_kk_score(&elements, 4);
-    //PROFILER.lock().unwrap().stop().expect("Couldn't stop");
-    //println!("{:?}", partition);
+    let partition = ckk::n_kk_score(&elements, 4);
+    PROFILER.lock().unwrap().stop().expect("Couldn't stop");
+    println!("{:?}", partition);
+    */
+    let elements = vec![
+        403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+        8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+        2057084, 2057084, 2057084, 9599726, 9599726, 9599726,
+    ];
+    PROFILER
+        .lock()
+        .unwrap()
+        .start("./rnp.profile")
+        .expect("Couldn't start");
+    println!("{:?}", ckk::ckk_2(&elements));
+    PROFILER.lock().unwrap().stop().expect("Couldn't stop");
 }

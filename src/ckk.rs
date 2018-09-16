@@ -4,6 +4,7 @@ use std::collections::BinaryHeap;
 use std::convert::From;
 use std::fmt::{Debug, Display};
 use std::iter::{Iterator, Sum};
+use std::mem::swap;
 use std::ops::{AddAssign, SubAssign};
 
 pub trait Arith:
@@ -76,7 +77,7 @@ pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Direction {
     Diff,
     Sum,
@@ -158,6 +159,100 @@ fn ckk_raw<T: Arith>(
     }
 }
 
+pub fn ckk_2<T: Arith>(elements: &[T]) -> KKPartition<T> {
+    let mut best_directions = Vec::with_capacity(elements.len());
+    let mut directions = Vec::with_capacity(elements.len());
+    let mut best = elements.iter().map(|x| x.clone()).sum();
+    let mut work_elements = elements.to_vec();
+    let sum = elements.iter().cloned().sum();
+    ckk_raw_2(
+        &mut work_elements,
+        sum,
+        &mut directions,
+        &mut best,
+        &mut best_directions,
+    );
+    reconstruct_ckk(elements, best_directions)
+}
+
+// When ckk_raw_2 returns, elements must:
+// * Have an unchanged first element.
+// * Otherwise be a permutation of its original value.
+fn ckk_raw_2<T: Arith>(
+    elements: &mut [T],
+    sum: T,
+    directions: &mut Vec<Direction>,
+    best: &mut T,
+    best_directions: &mut Vec<Direction>,
+) {
+    println!("========");
+    println!("elements: {:?}", elements);
+    println!("sum: {:?}", sum);
+    println!("directions: {:?}", directions);
+    println!("best: {:?}", best);
+    println!("best_directions: {:?}", best_directions);
+    let (first, tail) = elements.split_first_mut().expect("elements is empty");
+    let original_first = first.clone();
+    let snd_val: T = match tail.split_first_mut() {
+        None => {
+            if *best > *first {
+                *best = *first;
+                best_directions.clone_from(directions);
+            }
+            return;
+        }
+        Some((snd, rest)) => {
+            if *snd > *first {
+                swap(first, snd);
+            }
+            for x in rest.iter_mut() {
+                if *x > *snd {
+                    swap(x, snd);
+                    if *snd > *first {
+                        swap(first, snd);
+                    }
+                }
+            }
+            *snd
+        }
+    };
+    let sum_rest = sum - *first;
+    if *first >= sum_rest {
+        let best_possible_score = *first - sum_rest;
+        if *best > best_possible_score {
+            *best = best_possible_score;
+            best_directions.clone_from(directions);
+            best_directions.push(Direction::Fill);
+        }
+        return;
+    }
+    directions.push(Direction::Diff);
+    tail[0] = *first - snd_val;
+    ckk_raw_2(
+        tail,
+        sum - snd_val - snd_val,
+        directions,
+        best,
+        best_directions,
+    );
+    directions.pop();
+    directions.push(Direction::Sum);
+    tail[0] = *first + snd_val;
+    ckk_raw_2(tail, sum, directions, best, best_directions);
+    directions.pop();
+    tail[0] = snd_val;
+    if *first == original_first {
+        return;
+    }
+    for x in tail {
+        if *x == original_first {
+            swap(first, x);
+            return;
+        }
+    }
+    panic!("Couldn't find the original first");
+}
+
 pub fn rnp<T: Arith>(elements: &[T]) {
     let mut upper_bound = n_kk_score(elements, 4);
     let heap: BinaryHeap<KKPartition<T>> = elements
@@ -190,7 +285,7 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
         Some(snd) => {
             let rest_score = snd.score + heap.iter().map(|p| p.score).sum();
             if first.score > rest_score {
-                if (first.score - rest_score)/2.into() > *upper_bound {
+                if (first.score - rest_score) / 2.into() > *upper_bound {
                     return;
                 }
             }
@@ -262,5 +357,49 @@ pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
                 heap.push(first);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate test;
+    use self::test::Bencher;
+    use ckk::{ckk, ckk_raw, ckk_raw_2, rnp};
+    use proptest::collection::vec;
+    proptest! {
+        #[test]
+        fn prop_compare_raw(ref elements in vec(1i32..100, 1..10)) {
+            let mut best_directions_1 = Vec::with_capacity(elements.len());
+            let mut directions_1 = Vec::with_capacity(elements.len());
+            let heap = elements.iter().map(|x| x.clone()).collect();
+            let mut best_1 = elements.iter().map(|x| x.clone()).sum();
+            ckk_raw(heap, &mut directions_1, &mut best_1, &mut best_directions_1);
+            let mut best_directions_2 = Vec::with_capacity(elements.len());
+            let mut directions_2 = Vec::with_capacity(elements.len());
+            let mut best_2 = elements.iter().map(|x| x.clone()).sum();
+            let mut work_elements_2 = elements.to_vec();
+            let sum = elements.iter().cloned().sum();
+            ckk_raw_2(&mut work_elements_2, sum, &mut directions_2, &mut best_2, &mut best_directions_2);
+            assert_eq!(best_directions_1,  best_directions_2);
+       }
+    }
+    #[bench]
+    fn bench_ckk(b: &mut Bencher) {
+        let elements = vec![
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
+            537584, 537584, 537584,
+        ];
+        b.iter(|| ckk(&elements));
+    }
+    #[bench]
+    fn bench_rnp(b: &mut Bencher) {
+        let elements = vec![
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            537584, 537584, 537584,
+        ];
+        b.iter(|| rnp(&elements));
     }
 }
