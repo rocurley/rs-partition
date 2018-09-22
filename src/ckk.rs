@@ -6,13 +6,18 @@ use std::fmt::{Debug, Display};
 use std::iter::{Iterator, Sum};
 use std::mem::swap;
 use std::ops::{AddAssign, SubAssign};
+use std::sync::RwLock;
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
+use rayon;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 
 pub trait Arith:
-    Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
+    Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Sync + Send + Debug + Display
 {
 }
 impl<T> Arith for T where
-    T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
+    T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Sync + Send + Debug + Display
 {}
 
 #[derive(Eq, Debug, Clone)]
@@ -252,38 +257,26 @@ fn ckk_raw<T: Arith>(
 }
 
 pub fn rnp<T: Arith>(elements: &[T]) {
-    let mut upper_bound = n_kk_score(elements, 4);
+    let upper_bound = RwLock::new(n_kk_score(elements, 4));
     let heap: BinaryHeap<KKPartition<T>> = elements
         .into_iter()
         .map(|&x| KKPartition::singleton(x))
         .collect();
-    rnp_helper(heap, &mut upper_bound);
+    let (tx, rx) = mpsc::channel();
+    rayon::join(|| rnp_helper(heap, &upper_bound, tx),
+                || {rx.into_iter().par_bridge().for_each(|partition| rnp_evaluate(partition, &upper_bound))});
 }
 
-fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut T) {
+fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &RwLock<T>, tx : Sender<KKPartition<T>>) {
     let mut first = heap.pop().expect("heap is empty");
     match heap.pop() {
         None => {
-            if first.score / 2.into() < *upper_bound {
-                let left = ckk(&first.left);
-                if (left.score + first.score) / 2.into() < *upper_bound {
-                    let right = ckk(&first.right);
-                    let score = (first.score + right.score + left.score) / 2.into();
-                    if score < *upper_bound {
-                        println!("Found a new bound! {}", score);
-                        println!("{:?}", left.left);
-                        println!("{:?}", left.right);
-                        println!("{:?}", right.left);
-                        println!("{:?}", right.right);
-                        *upper_bound = score;
-                    }
-                }
-            }
+            tx.send(first).expect("Failed to send");
         }
         Some(snd) => {
             let rest_score = snd.score + heap.iter().map(|p| p.score).sum();
             if first.score > rest_score {
-                if (first.score - rest_score) / 2.into() > *upper_bound {
+                if (first.score - rest_score) / 2.into() > *upper_bound.read().expect("Failed to acquire lock") {
                     return;
                 }
             }
@@ -292,13 +285,34 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
             let new_snd = snd.clone();
             new_first.merge(new_snd);
             new_heap.push(new_first);
-            rnp_helper(new_heap, upper_bound);
+            rnp_helper(new_heap, upper_bound, tx.clone());
             first.merge_rev(snd);
             heap.push(first);
-            rnp_helper(heap, upper_bound);
+            rnp_helper(heap, upper_bound, tx);
         }
     }
 }
+
+fn rnp_evaluate<T: Arith>(top_level_partition : KKPartition<T>, upper_bound : &RwLock<T>) {
+    if top_level_partition.score / 2.into() < *upper_bound.read().expect("Failed to acquire lock") {
+        let left = ckk(&top_level_partition.left);
+        if (left.score + top_level_partition.score) / 2.into() < *upper_bound.read().expect("Failed to acquire lock") {
+            let right = ckk(&top_level_partition.right);
+            let score = (top_level_partition.score + right.score + left.score) / 2.into();
+            if score < *upper_bound.read().expect("Failed to acquire lock") {
+                /*
+                println!("Found a new bound! {}", score);
+                println!("{:?}", left.left);
+                println!("{:?}", left.right);
+                println!("{:?}", right.left);
+                println!("{:?}", right.right);
+                */
+                *upper_bound.write().expect("Failed to acquire lock")  = score;
+            }
+        }
+    }
+}
+
 #[derive(Eq, Debug, Clone)]
 struct NKKScorePartition<T: Arith> {
     elements: Vec<T>,
@@ -396,17 +410,8 @@ mod tests {
         assert_eq!(partition.score, 0);
     }
     #[bench]
-    fn bench_ckk(b: &mut Bencher) {
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| ckk_old(&elements));
-    }
     #[bench]
-    fn bench_ckk_2(b: &mut Bencher) {
+    fn bench_ckk(b: &mut Bencher) {
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
