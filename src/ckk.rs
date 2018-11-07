@@ -59,6 +59,24 @@ impl<T: Arith> KKPartition<T> {
     }
 }
 
+#[derive(Debug)]
+pub enum RNPResult<T: Arith> {
+    Leaf(KKPartition<T>),
+    Node(Box<RNPResult<T>>, Box<RNPResult<T>>),
+}
+impl<T: Arith> RNPResult<T> {
+    pub fn to_vec(&self) -> Vec<&[T]> {
+        match self {
+            RNPResult::Leaf(kk) => vec![&kk.left, &kk.right],
+            RNPResult::Node(l, r) => {
+                let mut v = l.to_vec();
+                v.append(&mut r.to_vec());
+                v
+            }
+        }
+    }
+}
+
 pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut heap: BinaryHeap<KKPartition<T>> = elements
         .into_iter()
@@ -251,16 +269,22 @@ fn ckk_raw<T: Arith>(
     panic!("Couldn't find the original first");
 }
 
-pub fn rnp<T: Arith>(elements: &[T]) {
+pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
     let mut upper_bound = n_kk_score(elements, 4);
+    let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
         .into_iter()
         .map(|&x| KKPartition::singleton(x))
         .collect();
-    rnp_helper(heap, &mut upper_bound);
+    rnp_helper(heap, &mut upper_bound, &mut best);
+    best.expect("KK heursitic was optimal, which isn't properly handled yet :(")
 }
 
-fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut T) {
+fn rnp_helper<T: Arith>(
+    mut heap: BinaryHeap<KKPartition<T>>,
+    upper_bound: &mut T,
+    best: &mut Option<RNPResult<T>>,
+) {
     let mut first = heap.pop().expect("heap is empty");
     match heap.pop() {
         None => {
@@ -270,12 +294,11 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
                     let right = ckk(&first.right);
                     let score = (first.score + right.score + left.score) / 2.into();
                     if score < *upper_bound {
-                        println!("Found a new bound! {}", score);
-                        println!("{:?}", left.left);
-                        println!("{:?}", left.right);
-                        println!("{:?}", right.left);
-                        println!("{:?}", right.right);
                         *upper_bound = score;
+                        *best = Some(RNPResult::Node(
+                            Box::new(RNPResult::Leaf(left)),
+                            Box::new(RNPResult::Leaf(right)),
+                        ));
                     }
                 }
             }
@@ -292,10 +315,10 @@ fn rnp_helper<T: Arith>(mut heap: BinaryHeap<KKPartition<T>>, upper_bound: &mut 
             let new_snd = snd.clone();
             new_first.merge(new_snd);
             new_heap.push(new_first);
-            rnp_helper(new_heap, upper_bound);
+            rnp_helper(new_heap, upper_bound, best);
             first.merge_rev(snd);
             heap.push(first);
-            rnp_helper(heap, upper_bound);
+            rnp_helper(heap, upper_bound, best);
         }
     }
 }
@@ -362,7 +385,7 @@ pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk_old, ckk, ckk_raw_old, ckk_raw, rnp};
+    use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, rnp};
     use proptest::collection::vec;
     proptest! {
         #[test]
@@ -391,7 +414,7 @@ mod tests {
     }
     #[test]
     fn unit_ckk() {
-        let elements = vec![2,3,4,5];
+        let elements = vec![2, 3, 4, 5];
         let partition = ckk(&elements);
         assert_eq!(partition.score, 0);
     }
