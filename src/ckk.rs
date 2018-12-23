@@ -61,16 +61,22 @@ impl<T: Arith> KKPartition<T> {
 
 #[derive(Debug)]
 pub enum RNPResult<T: Arith> {
-    Leaf(KKPartition<T>),
-    Node(Box<RNPResult<T>>, Box<RNPResult<T>>),
+    TwoWay(KKPartition<T>),
+    EvenSplit(Box<RNPResult<T>>, Box<RNPResult<T>>),
+    OddSplit(Vec<T>, Box<RNPResult<T>>),
 }
 impl<T: Arith> RNPResult<T> {
     pub fn to_vec(&self) -> Vec<&[T]> {
         match self {
-            RNPResult::Leaf(kk) => vec![&kk.left, &kk.right],
-            RNPResult::Node(l, r) => {
+            RNPResult::TwoWay(kk) => vec![&kk.left, &kk.right],
+            RNPResult::EvenSplit(l, r) => {
                 let mut v = l.to_vec();
                 v.append(&mut r.to_vec());
+                v
+            }
+            RNPResult::OddSplit(first, rest) => {
+                let mut v = vec![first.as_slice()];
+                v.append(&mut rest.to_vec());
                 v
             }
         }
@@ -295,9 +301,9 @@ fn rnp_helper<T: Arith>(
                     let score = (first.score + right.score + left.score) / 2.into();
                     if score < *upper_bound {
                         *upper_bound = score;
-                        *best = Some(RNPResult::Node(
-                            Box::new(RNPResult::Leaf(left)),
-                            Box::new(RNPResult::Leaf(right)),
+                        *best = Some(RNPResult::EvenSplit(
+                            Box::new(RNPResult::TwoWay(left)),
+                            Box::new(RNPResult::TwoWay(right)),
                         ));
                     }
                 }
@@ -323,51 +329,60 @@ fn rnp_helper<T: Arith>(
     }
 }
 #[derive(Eq, Debug, Clone)]
-struct NKKScorePartition<T: Arith> {
-    elements: Vec<T>,
+struct NKKPartition<T: Arith> {
+    elements: Vec<Vec<T>>,
 }
 
-impl<T: Arith> PartialEq for NKKScorePartition<T> {
+impl<T: Arith> PartialEq for NKKPartition<T> {
     fn eq(&self, other: &Self) -> bool {
         self.score() == other.score()
     }
 }
-impl<T: Arith> PartialOrd for NKKScorePartition<T> {
+impl<T: Arith> PartialOrd for NKKPartition<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.score().cmp(&other.score()))
     }
 }
-impl<T: Arith> Ord for NKKScorePartition<T> {
+impl<T: Arith> Ord for NKKPartition<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.score().cmp(&other.score())
     }
 }
 
-impl<T: Arith> NKKScorePartition<T> {
+impl<T: Arith> NKKPartition<T> {
     fn score(&self) -> T {
-        self.elements[0] - self.elements[self.elements.len() - 1]
+        let max: T = self.elements[0].iter().map(|x| *x).sum();
+        let min: T = self.elements[self.elements.len() - 1]
+            .iter()
+            .map(|x| *x)
+            .sum();
+        max - min
     }
     fn merge(&mut self, other: Self) {
-        for (s, o) in self
+        for (s, mut o) in self
             .elements
             .iter_mut()
             .zip(other.elements.into_iter().rev())
         {
-            *s += o;
+            s.append(&mut o);
         }
-        self.elements.sort_unstable_by(|x, y| y.cmp(x));
+        self.elements.sort_unstable_by(|x, y| {
+            let y_sum: T = y.iter().map(|&v| v).sum();
+            let x_sum: T = x.iter().map(|&v| v).sum();
+            y_sum.cmp(&x_sum)
+        });
     }
     fn singleton(x: T, n: usize) -> Self {
-        let mut elements = vec![zero(); n];
-        elements[0] = x;
-        NKKScorePartition { elements: elements }
+        let mut elements = vec![Vec::new(); n];
+        elements[0].push(x);
+        NKKPartition { elements: elements }
     }
 }
 
 pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
-    let mut heap: BinaryHeap<NKKScorePartition<T>> = elements
+    let mut heap: BinaryHeap<NKKPartition<T>> = elements
         .into_iter()
-        .map(|&x| NKKScorePartition::singleton(x, n))
+        .map(|&x| NKKPartition::singleton(x, n))
         .collect();
     loop {
         let mut first = heap.pop().expect("heap is empty");
@@ -386,7 +401,9 @@ mod tests {
     extern crate test;
     use self::test::Bencher;
     use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, rnp};
+    use gcc::find_best_partitioning;
     use proptest::collection::vec;
+    use std::borrow::{Borrow, BorrowMut};
     proptest! {
         #[test]
         fn prop_compare_raw(ref elements in vec(1i32..100, 1..10)) {
@@ -417,6 +434,32 @@ mod tests {
         let elements = vec![2, 3, 4, 5];
         let partition = ckk(&elements);
         assert_eq!(partition.score, 0);
+    }
+    proptest! {
+        #[test]
+        fn prop_rnp_gcc(ref elements in vec(1i32..100, 1..10)) {
+            let (gcc_results, _) = find_best_partitioning(4, &elements);
+            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
+            let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
+            let rnp_results = rnp(&elements);
+            let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.iter().sum()).collect();
+            let rnp_score = rnp_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
+            /*
+            let mut gcc_sorted : Vec<Vec<i32>> = gcc_results.iter_mut().map(|p| {
+                let mut els = p.to_vec();
+                els.sort();
+                els
+            }).collect();
+            gcc_sorted.sort();
+            let mut rnp_sorted : Vec<Vec<i32>> = rnp_results.to_vec().into_iter().map(|els| {
+                let mut vec = els.to_vec();
+                vec.sort();
+                vec
+            }).collect();
+            rnp_sorted.sort();
+            */
+            assert_eq!(rnp_score, gcc_score);
+       }
     }
     #[bench]
     fn bench_ckk(b: &mut Bencher) {

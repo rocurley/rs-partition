@@ -3,12 +3,17 @@ extern crate num;
 
 use num::{one, zero, Integer};
 use std::convert::From;
+use std::fmt::{Debug, Display};
 use std::iter::{Iterator, Sum};
 use std::ops::{AddAssign, SubAssign};
-use std::fmt::{Debug, Display};
 
-pub trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display{}
-impl<T> Arith for T where T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display{}
+pub trait Arith:
+    Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
+{
+}
+impl<T> Arith for T where
+    T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
+{}
 
 #[derive(Clone)]
 pub struct Partition<T: Arith> {
@@ -22,20 +27,26 @@ impl<T: Arith> Partition<T> {
         Partition {
             sum: zero(),
             length: 0,
-            elements: vec!(zero();capacity).into_boxed_slice(),
+            elements: vec![zero(); capacity].into_boxed_slice(),
         }
     }
     fn push(&mut self, x: T) {
         self.sum += x;
         *&mut self.elements[self.length] = x;
-        self.length +=1;
+        self.length += 1;
     }
     fn pop(&mut self) {
-        self.length -=1;
+        self.length -= 1;
         self.sum -= *&self.elements[self.length];
     }
     pub fn print(&self) {
         println!("{:?} : {:?}", self.sum, &self.elements[0..self.length]);
+    }
+    pub fn to_vec(&self) -> Vec<T> {
+        self.elements[0..self.length].to_vec()
+    }
+    pub fn sum(&self) -> T {
+        self.sum
     }
 }
 
@@ -47,10 +58,6 @@ fn consider_partitioning<T: Arith>(
     let (ref mut current_partitioning, ref mut current_score) = current_best;
     if *current_score > score {
         *current_score = score;
-        println!("Current best: {}", score);
-        for partition in current_partitioning.iter() {
-            partition.print();
-        }
         current_partitioning.clone_from_slice(candidate)
     }
 }
@@ -118,7 +125,10 @@ fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
     max_sum - min_sum
 }
 
-pub fn find_best_partitioning<T: Arith>(n_partitions: u8, elements: &[T]) -> (Vec<Partition<T>>, T) {
+pub fn find_best_partitioning<T: Arith>(
+    n_partitions: u8,
+    elements: &[T],
+) -> (Vec<Partition<T>>, T) {
     let mut partitions: Vec<Partition<T>> = (0..n_partitions)
         .map(|_| Partition::new(elements.len()))
         .collect();
