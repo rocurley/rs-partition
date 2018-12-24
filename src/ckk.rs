@@ -1,19 +1,11 @@
-use num::{zero, Integer};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::convert::From;
-use std::fmt::{Debug, Display};
-use std::iter::{Iterator, Sum};
+use std::iter::Iterator;
 use std::mem::swap;
-use std::ops::{AddAssign, SubAssign};
 
-pub trait Arith:
-    Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
-{
-}
-impl<T> Arith for T where
-    T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
-{}
+#[path = "arith.rs"]
+pub mod arith;
+use self::arith::Arith;
 
 #[derive(Eq, Debug, Clone)]
 pub struct KKPartition<T: Arith> {
