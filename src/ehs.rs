@@ -1,6 +1,7 @@
 #[path = "arith.rs"]
 pub mod arith;
 use self::arith::Arith;
+use std::ops::Range;
 use std::ops::RangeInclusive;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -47,21 +48,21 @@ fn naive_subsets_in_range<T: Arith>(
 struct Submasks {
     mask: u64,
     submask: u64,
+    start: bool,
 }
 impl Iterator for Submasks where {
     type Item = u64;
     fn next(&mut self) -> Option<u64> {
-        if self.mask == 0 {
-            return None;
+        if self.start {
+            self.start = false;
+            return Some(self.mask);
         }
         if self.submask == 0 {
-            self.mask = 0;
-            return Some(self.submask);
+            return None;
         }
-        let to_return = self.submask;
         self.submask -= 1;
         self.submask &= self.mask;
-        Some(to_return)
+        Some(self.submask)
     }
 }
 
@@ -69,7 +70,34 @@ fn submasks(mask: u64) -> Submasks {
     Submasks {
         mask,
         submask: mask,
+        start: true,
     }
+}
+
+fn split_mask<T: Arith>(mask: u64, elements: &[T]) -> (u64, u64) {
+    let mut element_masks = Vec::with_capacity(mask.count_ones() as usize);
+    for i in 0..64 {
+        if (mask & 1 << i) > 0 {
+            element_masks.push((elements[i], 1 << i));
+        }
+    }
+    element_masks.sort_unstable();
+    let (smalls, larges) = element_masks.split_at(element_masks.len() / 2);
+    let (mut small_mask, mut large_mask) = (0, 0);
+    for (_, element_mask) in smalls {
+        small_mask |= element_mask;
+    }
+    for (_, element_mask) in larges {
+        large_mask |= element_mask;
+    }
+    (small_mask, large_mask)
+}
+
+struct EHS<T> {
+    ascending: Vec<Subset<T, u64>>,
+    descending: Vec<Subset<T, u64>>,
+    ascending_cutoff: usize,
+    range: Range<T>,
 }
 
 #[cfg(test)]
