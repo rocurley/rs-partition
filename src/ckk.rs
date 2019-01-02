@@ -395,7 +395,6 @@ mod tests {
     use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, rnp};
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
-    use std::borrow::{Borrow, BorrowMut};
     proptest! {
         #[test]
         fn prop_compare_raw(ref elements in vec(1i32..100, 1..10)) {
