@@ -1,9 +1,5 @@
-#[path = "arith.rs"]
-pub mod arith;
-#[path = "subset.rs"]
-pub mod subset;
-use self::arith::Arith;
-use self::subset::{all_subsets, split_mask, submasks, Subset};
+use super::arith::Arith;
+use super::subset::{all_subsets, split_mask, submasks, Subset};
 use std::cmp::{min, Reverse};
 use std::ops::{Range, RangeInclusive};
 

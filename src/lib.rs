@@ -4,7 +4,8 @@
 extern crate num;
 #[macro_use]
 extern crate proptest;
+mod arith;
 pub mod ckk;
 pub mod ehs;
 pub mod gcc;
-pub mod subset;
+mod subset;

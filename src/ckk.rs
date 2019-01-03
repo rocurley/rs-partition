@@ -1,11 +1,8 @@
+use super::arith::Arith;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::iter::Iterator;
 use std::mem::swap;
-
-#[path = "arith.rs"]
-pub mod arith;
-use self::arith::Arith;
 
 #[derive(Eq, Debug, Clone)]
 pub struct KKPartition<T: Arith> {

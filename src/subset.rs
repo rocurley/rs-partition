@@ -1,6 +1,4 @@
-#[path = "arith.rs"]
-pub mod arith;
-use self::arith::Arith;
+use super::arith::Arith;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt::Debug;
@@ -206,6 +204,22 @@ mod tests {
                 all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
             expected.sort();
             let actual_iterator : OrderedSubsets<i32, Up> =
+                OrderedSubsets::new(mask, elements);
+            let actual : Vec<i32> = actual_iterator.map(|subset| subset.sum).collect();
+            assert_eq!(
+                expected,
+                actual
+            );
+       }
+    }
+    proptest! {
+        #[test]
+        fn prop_ordered_subsets_down(ref elements in vec(1i32..100, 1..10)) {
+            let mask = (1 << elements.len()) -1;
+            let mut expected : Vec<i32> =
+                all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
+            expected.sort_by(|l,r| l.cmp(r).reverse());
+            let actual_iterator : OrderedSubsets<i32, Down> =
                 OrderedSubsets::new(mask, elements);
             let actual : Vec<i32> = actual_iterator.map(|subset| subset.sum).collect();
             assert_eq!(
