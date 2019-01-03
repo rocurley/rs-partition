@@ -2,11 +2,8 @@ extern crate cpuprofiler;
 extern crate num;
 
 use super::arith::Arith;
-use num::{one, zero, Integer};
-use std::convert::From;
-use std::fmt::{Debug, Display};
-use std::iter::{Iterator, Sum};
-use std::ops::{AddAssign, SubAssign};
+use num::{one, zero};
+use std::iter::Iterator;
 
 #[derive(Clone)]
 pub struct Partition<T: Arith> {

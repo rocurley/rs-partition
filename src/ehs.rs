@@ -1,16 +1,7 @@
 use super::arith::Arith;
-use super::subset::{all_subsets, split_mask, submasks, Subset};
-use std::cmp::{min, Reverse};
-use std::ops::{Range, RangeInclusive};
-
-fn naive_subsets_in_range<T: Arith>(
-    elements: &[T],
-    range: Range<T>,
-) -> Option<(Vec<Subset<T, u64>>)> {
-    let mut subsets = all_subsets(elements)?;
-    subsets.retain(|subset| range.contains(&subset.sum));
-    Some(subsets)
-}
+use super::subset::{split_mask, submasks, Subset};
+use std::cmp::Reverse;
+use std::ops::Range;
 
 #[derive(Debug)]
 struct EHS<T> {
@@ -51,7 +42,7 @@ impl<'a, T: Arith> Iterator for EHS<T> where {
     }
 }
 impl<T: Arith> EHS<T> where {
-    fn new(mask: u64, elements: &[T], range: Range<T>) -> Self {
+    pub fn new(mask: u64, elements: &[T], range: Range<T>) -> Self {
         let (left, right) = split_mask(mask, elements);
         let mut ascending: Vec<Subset<T, u64>> = submasks(left)
             .map(|mask| Subset::new(mask, elements))
@@ -98,11 +89,24 @@ impl<T: Arith> EHS<T> where {
 
 #[cfg(test)]
 mod tests {
-    use ehs::{all_subsets, naive_subsets_in_range, submasks, Subset, EHS};
+    use arith::Arith;
+    use ehs::{submasks, Subset, EHS};
     use proptest::collection::vec;
     use std::collections::HashMap;
     use std::fmt::Debug;
     use std::hash::Hash;
+    use std::ops::Range;
+    use subset::all_subsets;
+
+    fn naive_subsets_in_range<T: Arith>(
+        elements: &[T],
+        range: Range<T>,
+    ) -> Option<(Vec<Subset<T, u64>>)> {
+        let mut subsets = all_subsets(elements)?;
+        subsets.retain(|subset| range.contains(&subset.sum));
+        Some(subsets)
+    }
+
     #[test]
     fn unit_all_subsets() {
         let elements = vec![1, 2, 3];
