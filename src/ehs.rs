@@ -1,40 +1,11 @@
 #[path = "arith.rs"]
 pub mod arith;
+#[path = "subset.rs"]
+pub mod subset;
 use self::arith::Arith;
+use self::subset::{all_subsets, split_mask, submasks, Subset};
 use std::cmp::{min, Reverse};
 use std::ops::{Range, RangeInclusive};
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct Subset<T, M> {
-    sum: T,
-    mask: M,
-}
-impl<T: Arith> Subset<T, u64> {
-    fn new(mask: u64, elements: &[T]) -> Self {
-        let mut selected_bit = 1;
-        let mut sum = T::from(0);
-        for x in elements {
-            if mask & selected_bit > 0 {
-                sum += *x;
-            }
-            selected_bit <<= 1;
-        }
-        Subset { sum, mask }
-    }
-}
-
-fn all_subsets<T: Arith>(elements: &[T]) -> Option<(Vec<Subset<T, u64>>)> {
-    if elements.len() > 63 {
-        //TODO: 64 is doable but requires care on the bitshift
-        return None;
-    }
-    let subset_count = 1u64 << elements.len(); //TODO: dedupe
-    Some(
-        (0..subset_count)
-            .map(|mask| Subset::new(mask, elements))
-            .collect(),
-    )
-}
 
 fn naive_subsets_in_range<T: Arith>(
     elements: &[T],
@@ -43,55 +14,6 @@ fn naive_subsets_in_range<T: Arith>(
     let mut subsets = all_subsets(elements)?;
     subsets.retain(|subset| range.contains(&subset.sum));
     Some(subsets)
-}
-
-#[derive(Debug)]
-struct Submasks {
-    mask: u64,
-    submask: u64,
-    start: bool,
-}
-impl Iterator for Submasks where {
-    type Item = u64;
-    fn next(&mut self) -> Option<u64> {
-        if self.start {
-            self.start = false;
-            return Some(self.mask);
-        }
-        if self.submask == 0 {
-            return None;
-        }
-        self.submask -= 1;
-        self.submask &= self.mask;
-        Some(self.submask)
-    }
-}
-
-fn submasks(mask: u64) -> Submasks {
-    Submasks {
-        mask,
-        submask: mask,
-        start: true,
-    }
-}
-
-fn split_mask<T: Arith>(mask: u64, elements: &[T]) -> (u64, u64) {
-    let mut element_masks = Vec::with_capacity(mask.count_ones() as usize);
-    for i in 0..64 {
-        if (mask & 1 << i) > 0 {
-            element_masks.push((elements[i], 1 << i));
-        }
-    }
-    element_masks.sort_unstable();
-    let (smalls, larges) = element_masks.split_at(element_masks.len() / 2);
-    let (mut small_mask, mut large_mask) = (0, 0);
-    for (_, element_mask) in smalls {
-        small_mask |= element_mask;
-    }
-    for (_, element_mask) in larges {
-        large_mask |= element_mask;
-    }
-    (small_mask, large_mask)
 }
 
 #[derive(Debug)]

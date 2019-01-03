@@ -7,3 +7,4 @@ extern crate proptest;
 pub mod ckk;
 pub mod ehs;
 pub mod gcc;
+pub mod subset;
