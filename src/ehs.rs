@@ -1,7 +1,7 @@
 #[path = "arith.rs"]
 pub mod arith;
 use self::arith::Arith;
-use std::cmp::min;
+use std::cmp::{min, Reverse};
 use std::ops::{Range, RangeInclusive};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -45,6 +45,7 @@ fn naive_subsets_in_range<T: Arith>(
     Some(subsets)
 }
 
+#[derive(Debug)]
 struct Submasks {
     mask: u64,
     submask: u64,
@@ -93,6 +94,7 @@ fn split_mask<T: Arith>(mask: u64, elements: &[T]) -> (u64, u64) {
     (small_mask, large_mask)
 }
 
+#[derive(Debug)]
 struct EHS<T> {
     ascending: Vec<Subset<T, u64>>,
     descending: Vec<Subset<T, u64>>,
@@ -133,12 +135,14 @@ impl<'a, T: Arith> Iterator for EHS<T> where {
 impl<T: Arith> EHS<T> where {
     fn new(mask: u64, elements: &[T], range: Range<T>) -> Self {
         let (left, right) = split_mask(mask, elements);
-        let ascending: Vec<Subset<T, u64>> = submasks(left)
+        let mut ascending: Vec<Subset<T, u64>> = submasks(left)
             .map(|mask| Subset::new(mask, elements))
             .collect();
-        let descending = submasks(right)
+        ascending.sort_by_key(|subset| Reverse(subset.sum));
+        let mut descending: Vec<Subset<T, u64>> = submasks(right)
             .map(|mask| Subset::new(mask, elements))
             .collect();
+        descending.sort_by_key(|subset| subset.sum);
         let ascending_index = ascending.len();
         let mut ehs = EHS {
             ascending,
@@ -245,20 +249,34 @@ mod tests {
         let right = [1, 2, 3, 4];
         assert_permutation(left.into_iter(), right.into_iter());
     }
+    #[test]
+    fn unit_naive_subsets() {
+        let elements = [1, 3, 5];
+        let range = 3..6;
+        let expected = vec![
+            Subset::new(0b010, &elements),
+            Subset::new(0b011, &elements),
+            Subset::new(0b100, &elements),
+        ];
+        let actual = naive_subsets_in_range(&elements, range).unwrap();
+        assert_eq!(&expected, &actual);
+    }
     proptest! {
         #[test]
         fn prop_ehs(ref elements in vec(1i32..100, 1..10), b1 in 1i32..100, b2 in 1i32..100) {
-            let range = if b1 > b2 {
+            let range = if b1 < b2 {
                 b1..b2
             } else {
                 b2..b1
             };
-            let mask = (1 << elements.len() -1);
+            let mask = (1 << elements.len()) -1;
+            let expected : Vec<Subset<i32, u64>> =
+                naive_subsets_in_range(elements, range.clone()).unwrap();
+            let actual = EHS::new(mask, elements, range);
             assert_permutation(
-                //TODO: why does this pass !?
-                //naive_subsets_in_range(elements, range.clone()).unwrap().into_iter(),
-                vec![].into_iter(),
-                EHS::new(mask, elements, range))
+                expected.into_iter(),
+                actual
+            );
        }
     }
 }
