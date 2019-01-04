@@ -57,12 +57,25 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
         };
         assert_eq!(0, ascending.mask & descending.mask);
         let out = Subset::union(ascending, descending);
-        self.ascending_index += 1;
-        if self.range.contains(&out.sum) {
-            return Some(out);
+        match (out.sum < self.range.start, self.range.end <= out.sum) {
+            (false, false) => {
+                //In range
+                self.ascending_index += 1;
+                Some(out)
+            }
+            (false, true) => {
+                //Too big. Ascending will only increase, so drop the current descending.
+                self.step_descending();
+                self.next()
+            }
+            (true, false) => {
+                //Too small. Descending will only decrease, so drop the current ascending.
+                assert_eq!(0, self.ascending_index);
+                self.ascending.pop();
+                self.next()
+            }
+            (true, true) => unreachable!(),
         }
-        self.step_descending();
-        self.next()
     }
 }
 pub fn iterate_subsets_in_range<T: Arith>(
@@ -76,14 +89,12 @@ pub fn iterate_subsets_in_range<T: Arith>(
     let descending_raw: OrderedSubsets<_, Down> = ordered_subsets(right, elements);
     let descending = descending_raw.peekable();
     let ascending_index = 0;
-    let mut ess = ESS {
+    ESS {
         ascending,
         descending,
         ascending_index,
         range,
-    };
-    ess.set_ascending();
-    ess
+    }
 }
 
 impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
@@ -93,23 +104,6 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
         self.descending
             .next()
             .expect("Called step_descending with empty descending");
-        if let None = self.descending.peek() {
-            return;
-        }
-        self.set_ascending();
-    }
-
-    fn set_ascending(&mut self) {
-        let last_descending = self
-            .descending
-            .peek()
-            .expect("Called set_ascending with empty descending");
-        while let Some(ascending) = self.ascending.get(0) {
-            if ascending.sum + last_descending.sum >= self.range.start {
-                break;
-            }
-            self.ascending.pop();
-        }
         self.ascending_index = 0;
     }
 }
