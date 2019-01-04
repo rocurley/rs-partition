@@ -1,55 +1,40 @@
 use super::arith::Arith;
 use super::subset::{split_mask, submasks, Subset};
 use std::cmp::Reverse;
-use std::collections::vec_deque::VecDeque;
 use std::ops::Range;
 
 #[derive(Debug)]
 struct EHS<T> {
     ascending: Vec<Subset<T, u64>>,
-    ascending_current_range: VecDeque<Subset<T, u64>>,
-    ascending_index: usize,
     descending: Vec<Subset<T, u64>>,
+    ascending_index: usize,
     range: Range<T>,
 }
 impl<'a, T: Arith> Iterator for EHS<T> where {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
-        //println!("Calling next with current state: {:?}", &self);
-        let descending = self.descending.last()?;
         if self.descending.len() == 0 {
             return None;
         }
-        if self.ascending_index == self.ascending_current_range.len() {
-            match self.ascending.pop() {
-                Some(new_ascending) => self.ascending_current_range.push_back(new_ascending),
-                None => {
-                    self.step_descending();
-                    return self.next();
-                }
-            }
+        if self.ascending_index == 0 {
+            self.step_descending();
+            return self.next();
         }
-        assert!(
-            self.ascending_index < self.ascending_current_range.len(),
-            "Ascending index: {:?}, Ascending current range: {:?}",
-            self.ascending_index,
-            self.ascending_current_range
-        );
-        let ascending = &self.ascending_current_range[self.ascending_index];
-        self.ascending_index += 1;
-        assert_eq!(0, ascending.mask & descending.mask);
-        let out = Subset::union(ascending, descending);
-        assert!(
-            out.sum >= self.range.start,
-            "Step descending let through a too small ascending"
-        );
+        self.ascending_index -= 1;
+        let out;
+        {
+            let descending = self
+                .descending
+                .last()
+                .expect("Empty descending after check");
+            let ascending = &self.ascending[self.ascending_index];
+            assert_eq!(0, ascending.mask & descending.mask);
+            out = Subset {
+                sum: ascending.sum + descending.sum,
+                mask: ascending.mask | descending.mask,
+            };
+        }
         if self.range.contains(&out.sum) {
-            /*
-            println!(
-                "Step returning {:?} by merging {:?} and {:?}",
-                out, ascending, descending
-            );
-            */
             return Some(out);
         }
         self.step_descending();
@@ -67,23 +52,15 @@ impl<T: Arith> EHS<T> where {
             .map(|mask| Subset::new(mask, elements))
             .collect();
         descending.sort_by_key(|subset| subset.sum);
-        let ascending_index = 0;
-        let first_descending = descending.last().expect("New with empty descending");
-        let mut ascending_current_range = VecDeque::new();
-        //Filter out ascending values that are too small for any descending value.
-        while let Some(current_ascending) = ascending.pop() {
-            if current_ascending.sum + first_descending.sum >= range.start {
-                ascending_current_range.push_back(current_ascending);
-                break;
-            }
-        }
-        EHS {
+        let ascending_index = ascending.len();
+        let mut ehs = EHS {
             ascending,
-            ascending_current_range,
             descending,
             ascending_index,
             range,
-        }
+        };
+        ehs.set_ascending();
+        ehs
     }
 
     fn step_descending(&mut self) {
@@ -97,17 +74,16 @@ impl<T: Arith> EHS<T> where {
     }
 
     fn set_ascending(&mut self) {
-        let current_descending = self
+        let last_descending = self
             .descending
             .last()
             .expect("Called set_ascending with empty descending");
-        while let Some(lowest_ascending) = self.ascending_current_range.front() {
-            if lowest_ascending.sum + current_descending.sum >= self.range.start {
-                break;
-            }
-            self.ascending_current_range.pop_front();
+        while (self.ascending.len() > 0)
+            && (self.ascending.last().unwrap().sum + last_descending.sum < self.range.start)
+        {
+            self.ascending.pop();
         }
-        self.ascending_index = 0;
+        self.ascending_index = self.ascending.len();
     }
 }
 
@@ -206,16 +182,6 @@ mod tests {
         ];
         let actual = naive_subsets_in_range(&elements, range).unwrap();
         assert_eq!(&expected, &actual);
-    }
-    #[test]
-    fn unit_ehs() {
-        let range = 1..6;
-        let elements = [1, 1, 3, 7];
-        let mask = (1 << elements.len()) - 1;
-        let expected: Vec<Subset<i32, u64>> =
-            naive_subsets_in_range(&elements, range.clone()).unwrap();
-        let actual = EHS::new(mask, &elements, range);
-        assert_permutation(expected.into_iter(), actual);
     }
     proptest! {
         #[test]

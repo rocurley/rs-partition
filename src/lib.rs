@@ -1,6 +1,5 @@
 #![feature(test)]
 #![feature(range_contains)]
-#![feature(nll)]
 
 extern crate num;
 #[cfg(test)]
