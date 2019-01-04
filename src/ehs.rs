@@ -1,13 +1,15 @@
 use super::arith::Arith;
 use super::subset::{split_mask, submasks, Subset};
+use std::cmp::Reverse;
 use std::collections::VecDeque;
+use std::iter::Peekable;
 use std::ops::Range;
 
 #[derive(Debug)]
-pub struct EHS<T, I: Iterator<Item = Subset<T, u64>>> {
-    ascending: LazyQueue<Subset<T, u64>, I>,
+pub struct EHS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> {
+    ascending: LazyQueue<Subset<T, u64>, I1>,
     ascending_index: usize,
-    descending: Vec<Subset<T, u64>>,
+    descending: Peekable<I2>,
     range: Range<T>,
 }
 
@@ -35,10 +37,12 @@ impl<T, I: Iterator<Item = T>> LazyQueue<T, I> {
         Some(&self.cached[index])
     }
 }
-impl<'a, T: Arith, I: Iterator<Item = Subset<T, u64>>> Iterator for EHS<T, I> where {
+impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> Iterator
+    for EHS<T, I1, I2> where
+{
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
-        let descending = self.descending.last()?;
+        let descending = self.descending.peek()?;
         let ascending = match self.ascending.get(self.ascending_index) {
             Some(ascending) => ascending,
             None => {
@@ -60,7 +64,7 @@ pub fn ehs<T: Arith>(
     mask: u64,
     elements: &[T],
     range: Range<T>,
-) -> EHS<T, impl Iterator<Item = Subset<T, u64>>> {
+) -> EHS<T, impl Iterator<Item = Subset<T, u64>>, impl Iterator<Item = Subset<T, u64>>> {
     let (left, right) = split_mask(mask, elements);
     let mut ascending_vec: Vec<Subset<T, u64>> = submasks(left)
         .map(|mask| Subset::new(mask, elements))
@@ -70,10 +74,11 @@ pub fn ehs<T: Arith>(
         cached: VecDeque::new(),
         rest: ascending_vec.into_iter(),
     };
-    let mut descending: Vec<Subset<T, u64>> = submasks(right)
+    let mut descending_vec: Vec<Subset<T, u64>> = submasks(right)
         .map(|mask| Subset::new(mask, elements))
         .collect();
-    descending.sort_by_key(|subset| subset.sum);
+    descending_vec.sort_by_key(|subset| Reverse(subset.sum));
+    let descending = descending_vec.into_iter().peekable();
     let ascending_index = 0;
     let mut ehs = EHS {
         ascending,
@@ -85,12 +90,14 @@ pub fn ehs<T: Arith>(
     ehs
 }
 
-impl<T: Arith, I: Iterator<Item = Subset<T, u64>>> EHS<T, I> where {
+impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
+    EHS<T, I1, I2> where
+{
     fn step_descending(&mut self) {
         self.descending
-            .pop()
+            .next()
             .expect("Called step_descending with empty descending");
-        if self.descending.len() == 0 {
+        if let None = self.descending.peek() {
             return;
         }
         self.set_ascending();
@@ -99,7 +106,7 @@ impl<T: Arith, I: Iterator<Item = Subset<T, u64>>> EHS<T, I> where {
     fn set_ascending(&mut self) {
         let last_descending = self
             .descending
-            .last()
+            .peek()
             .expect("Called set_ascending with empty descending");
         while let Some(ascending) = self.ascending.get(0) {
             if ascending.sum + last_descending.sum >= self.range.start {
