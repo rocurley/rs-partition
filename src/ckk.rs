@@ -1,5 +1,7 @@
 use super::arith::Arith;
+use super::subset::Subset;
 use std::cmp::Ordering;
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::iter::Iterator;
 use std::mem::swap;
@@ -105,7 +107,7 @@ fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPa
         let mut first = heap.pop().expect("heap is empty");
         match heap.pop() {
             None => return first,
-            Some(mut snd) => {
+            Some(snd) => {
                 match direction {
                     Direction::Diff => first.merge(snd),
                     Direction::Sum => first.merge_rev(snd),
@@ -265,7 +267,7 @@ fn ckk_raw<T: Arith>(
 }
 
 pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
-    let mut upper_bound = n_kk_score(elements, 4);
+    let mut upper_bound = n_kk(elements, 4).score();
     let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
         .into_iter()
@@ -318,8 +320,8 @@ fn rnp_helper<T: Arith>(
     }
 }
 #[derive(Eq, Debug, Clone)]
-struct NKKPartition<T: Arith> {
-    elements: Vec<Vec<T>>,
+pub struct NKKPartition<T: Arith> {
+    partitions: Vec<Subset<T, u64>>,
 }
 
 impl<T: Arith> PartialEq for NKKPartition<T> {
@@ -340,43 +342,42 @@ impl<T: Arith> Ord for NKKPartition<T> {
 
 impl<T: Arith> NKKPartition<T> {
     fn score(&self) -> T {
-        let max: T = self.elements[0].iter().map(|x| *x).sum();
-        let min: T = self.elements[self.elements.len() - 1]
-            .iter()
-            .map(|x| *x)
-            .sum();
+        let max = self.partitions[0].sum;
+        let min = self.partitions.last().unwrap().sum;
         max - min
     }
     fn merge(&mut self, other: Self) {
-        for (s, mut o) in self
-            .elements
+        for (s, o) in self
+            .partitions
             .iter_mut()
-            .zip(other.elements.into_iter().rev())
+            .zip(other.partitions.into_iter().rev())
         {
-            s.append(&mut o);
+            *s = Subset::union(&s, &o);
         }
-        self.elements.sort_unstable_by(|x, y| {
-            let y_sum: T = y.iter().map(|&v| v).sum();
-            let x_sum: T = x.iter().map(|&v| v).sum();
-            y_sum.cmp(&x_sum)
-        });
+        self.partitions.sort_unstable_by_key(|x| Reverse(x.sum));
     }
-    fn singleton(x: T, n: usize) -> Self {
-        let mut elements = vec![Vec::new(); n];
-        elements[0].push(x);
-        NKKPartition { elements: elements }
+    fn singleton(mask: u64, elements: &[T], n: usize) -> Self {
+        let mut partitions = vec![
+            Subset {
+                sum: T::from(0),
+                mask: 0
+            };
+            n
+        ];
+        partitions[0] = Subset::new(mask, elements);
+        NKKPartition { partitions }
     }
 }
 
-pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
-    let mut heap: BinaryHeap<NKKPartition<T>> = elements
+pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> NKKPartition<T> {
+    let mut heap: BinaryHeap<NKKPartition<T>> = (0..elements.len())
         .into_iter()
-        .map(|&x| NKKPartition::singleton(x, n))
+        .map(|i| NKKPartition::singleton(1 << i, elements, n))
         .collect();
     loop {
         let mut first = heap.pop().expect("heap is empty");
         match heap.pop() {
-            None => return first.score(),
+            None => return first,
             Some(snd) => {
                 first.merge(snd);
                 heap.push(first);
@@ -389,7 +390,7 @@ pub fn n_kk_score<T: Arith>(elements: &[T], n: usize) -> T {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, rnp};
+    use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, kk, n_kk, rnp};
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
     proptest! {
@@ -447,6 +448,14 @@ mod tests {
             rnp_sorted.sort();
             */
             assert_eq!(rnp_score, gcc_score);
+       }
+    }
+    proptest! {
+        #[test]
+        fn prop_n_kk(ref elements in vec(1i32..100, 1..10)) {
+            let partition_1 = kk(elements).score;
+            let partition_2 = n_kk(elements,2).score();
+            assert_eq!(partition_1, partition_2);
        }
     }
     #[bench]
