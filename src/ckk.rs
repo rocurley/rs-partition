@@ -105,7 +105,7 @@ fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPa
         let mut first = heap.pop().expect("heap is empty");
         match heap.pop() {
             None => return first,
-            Some(mut snd) => {
+            Some(snd) => {
                 match direction {
                     Direction::Diff => first.merge(snd),
                     Direction::Sum => first.merge_rev(snd),
