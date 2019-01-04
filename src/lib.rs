@@ -1,3 +1,4 @@
+#![feature(nll)]
 #![feature(test)]
 #![feature(range_contains)]
 

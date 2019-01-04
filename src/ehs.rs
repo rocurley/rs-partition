@@ -1,39 +1,54 @@
 use super::arith::Arith;
 use super::subset::{split_mask, submasks, Subset};
-use std::cmp::Reverse;
+use std::collections::VecDeque;
 use std::ops::Range;
 
 #[derive(Debug)]
-struct EHS<T> {
-    ascending: Vec<Subset<T, u64>>,
-    descending: Vec<Subset<T, u64>>,
+pub struct EHS<T, I: Iterator<Item = Subset<T, u64>>> {
+    ascending: LazyQueue<Subset<T, u64>, I>,
     ascending_index: usize,
+    descending: Vec<Subset<T, u64>>,
     range: Range<T>,
 }
-impl<'a, T: Arith> Iterator for EHS<T> where {
+
+#[derive(Debug)]
+struct LazyQueue<T, I>
+where
+    I: Iterator<Item = T>,
+{
+    cached: VecDeque<T>,
+    rest: I,
+}
+impl<T, I: Iterator<Item = T>> LazyQueue<T, I> {
+    fn cache_through(&mut self, index: usize) -> Option<()> {
+        while self.cached.len() <= index {
+            self.cached.push_back(self.rest.next()?);
+        }
+        Some(())
+    }
+    fn pop(&mut self) -> Option<T> {
+        self.cache_through(0);
+        self.cached.pop_front()
+    }
+    fn get(&mut self, index: usize) -> Option<&T> {
+        self.cache_through(index)?;
+        Some(&self.cached[index])
+    }
+}
+impl<'a, T: Arith, I: Iterator<Item = Subset<T, u64>>> Iterator for EHS<T, I> where {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
-        if self.descending.len() == 0 {
-            return None;
-        }
-        if self.ascending_index == 0 {
-            self.step_descending();
-            return self.next();
-        }
-        self.ascending_index -= 1;
-        let out;
-        {
-            let descending = self
-                .descending
-                .last()
-                .expect("Empty descending after check");
-            let ascending = &self.ascending[self.ascending_index];
-            assert_eq!(0, ascending.mask & descending.mask);
-            out = Subset {
-                sum: ascending.sum + descending.sum,
-                mask: ascending.mask | descending.mask,
-            };
-        }
+        let descending = self.descending.last()?;
+        let ascending = match self.ascending.get(self.ascending_index) {
+            Some(ascending) => ascending,
+            None => {
+                self.step_descending();
+                return self.next();
+            }
+        };
+        assert_eq!(0, ascending.mask & descending.mask);
+        let out = Subset::union(ascending, descending);
+        self.ascending_index += 1;
         if self.range.contains(&out.sum) {
             return Some(out);
         }
@@ -41,28 +56,36 @@ impl<'a, T: Arith> Iterator for EHS<T> where {
         self.next()
     }
 }
-impl<T: Arith> EHS<T> where {
-    pub fn new(mask: u64, elements: &[T], range: Range<T>) -> Self {
-        let (left, right) = split_mask(mask, elements);
-        let mut ascending: Vec<Subset<T, u64>> = submasks(left)
-            .map(|mask| Subset::new(mask, elements))
-            .collect();
-        ascending.sort_by_key(|subset| Reverse(subset.sum));
-        let mut descending: Vec<Subset<T, u64>> = submasks(right)
-            .map(|mask| Subset::new(mask, elements))
-            .collect();
-        descending.sort_by_key(|subset| subset.sum);
-        let ascending_index = ascending.len();
-        let mut ehs = EHS {
-            ascending,
-            descending,
-            ascending_index,
-            range,
-        };
-        ehs.set_ascending();
-        ehs
-    }
+pub fn ehs<T: Arith>(
+    mask: u64,
+    elements: &[T],
+    range: Range<T>,
+) -> EHS<T, impl Iterator<Item = Subset<T, u64>>> {
+    let (left, right) = split_mask(mask, elements);
+    let mut ascending_vec: Vec<Subset<T, u64>> = submasks(left)
+        .map(|mask| Subset::new(mask, elements))
+        .collect();
+    ascending_vec.sort_by_key(|subset| subset.sum);
+    let ascending = LazyQueue {
+        cached: VecDeque::new(),
+        rest: ascending_vec.into_iter(),
+    };
+    let mut descending: Vec<Subset<T, u64>> = submasks(right)
+        .map(|mask| Subset::new(mask, elements))
+        .collect();
+    descending.sort_by_key(|subset| subset.sum);
+    let ascending_index = 0;
+    let mut ehs = EHS {
+        ascending,
+        descending,
+        ascending_index,
+        range,
+    };
+    ehs.set_ascending();
+    ehs
+}
 
+impl<T: Arith, I: Iterator<Item = Subset<T, u64>>> EHS<T, I> where {
     fn step_descending(&mut self) {
         self.descending
             .pop()
@@ -78,19 +101,20 @@ impl<T: Arith> EHS<T> where {
             .descending
             .last()
             .expect("Called set_ascending with empty descending");
-        while (self.ascending.len() > 0)
-            && (self.ascending.last().unwrap().sum + last_descending.sum < self.range.start)
-        {
+        while let Some(ascending) = self.ascending.get(0) {
+            if ascending.sum + last_descending.sum >= self.range.start {
+                break;
+            }
             self.ascending.pop();
         }
-        self.ascending_index = self.ascending.len();
+        self.ascending_index = 0;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use arith::Arith;
-    use ehs::{submasks, Subset, EHS};
+    use ehs::{ehs, submasks, Subset};
     use proptest::collection::vec;
     use std::collections::HashMap;
     use std::fmt::Debug;
@@ -183,6 +207,14 @@ mod tests {
         let actual = naive_subsets_in_range(&elements, range).unwrap();
         assert_eq!(&expected, &actual);
     }
+    fn test_ehs(elements: &[i32], range: Range<i32>) {
+        let mask = (1 << elements.len()) - 1;
+        let expected: Vec<Subset<i32, u64>> =
+            naive_subsets_in_range(elements, range.clone()).unwrap();
+        let actual = ehs(mask, elements, range);
+        assert_permutation(expected.into_iter(), actual);
+    }
+
     proptest! {
         #[test]
         fn prop_ehs(ref elements in vec(1i32..100, 1..10), b1 in 1i32..100, b2 in 1i32..100) {
@@ -191,14 +223,13 @@ mod tests {
             } else {
                 b2..b1
             };
-            let mask = (1 << elements.len()) -1;
-            let expected : Vec<Subset<i32, u64>> =
-                naive_subsets_in_range(elements, range.clone()).unwrap();
-            let actual = EHS::new(mask, elements, range);
-            assert_permutation(
-                expected.into_iter(),
-                actual
-            );
+            test_ehs(elements, range);
        }
+    }
+    #[test]
+    fn unit_ehs_1() {
+        let elements = [2, 1];
+        let range = 1..4;
+        test_ehs(&elements, range);
     }
 }
