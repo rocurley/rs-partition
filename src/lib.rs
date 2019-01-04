@@ -8,6 +8,6 @@ extern crate num;
 extern crate proptest;
 mod arith;
 pub mod ckk;
-pub mod ehs;
+pub mod ess;
 pub mod gcc;
 pub mod subset;

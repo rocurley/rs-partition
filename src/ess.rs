@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use std::ops::Range;
 
 #[derive(Debug)]
-pub struct EHS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> {
+pub struct ESS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> {
     ascending: LazyQueue<Subset<T, u64>, I1>,
     ascending_index: usize,
     descending: Peekable<I2>,
@@ -43,7 +43,7 @@ impl<T, I: Iterator<Item = T>> LazyQueue<T, I> {
     }
 }
 impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> Iterator
-    for EHS<T, I1, I2> where
+    for ESS<T, I1, I2> where
 {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
@@ -65,29 +65,29 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
         self.next()
     }
 }
-pub fn ehs<T: Arith>(
+pub fn iterate_subsets_in_range<T: Arith>(
     mask: u64,
     elements: &[T],
     range: Range<T>,
-) -> EHS<T, impl Iterator<Item = Subset<T, u64>>, impl Iterator<Item = Subset<T, u64>>> {
+) -> ESS<T, impl Iterator<Item = Subset<T, u64>>, impl Iterator<Item = Subset<T, u64>>> {
     let (left, right) = split_mask(mask, elements);
     let ascending_raw: OrderedSubsets<_, Up> = ordered_subsets(left, elements);
     let ascending = LazyQueue::new(ascending_raw);
     let descending_raw: OrderedSubsets<_, Down> = ordered_subsets(right, elements);
     let descending = descending_raw.peekable();
     let ascending_index = 0;
-    let mut ehs = EHS {
+    let mut ess = ESS {
         ascending,
         descending,
         ascending_index,
         range,
     };
-    ehs.set_ascending();
-    ehs
+    ess.set_ascending();
+    ess
 }
 
 impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
-    EHS<T, I1, I2> where
+    ESS<T, I1, I2> where
 {
     fn step_descending(&mut self) {
         self.descending
@@ -117,7 +117,7 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
 #[cfg(test)]
 mod tests {
     use arith::Arith;
-    use ehs::{ehs, Subset};
+    use ess::{iterate_subsets_in_range, Subset};
     use proptest::collection::vec;
     use std::collections::HashMap;
     use std::fmt::Debug;
@@ -210,29 +210,29 @@ mod tests {
         let actual = naive_subsets_in_range(&elements, range).unwrap();
         assert_eq!(&expected, &actual);
     }
-    fn test_ehs(elements: &[i32], range: Range<i32>) {
+    fn test_iterate_subsets_in_range(elements: &[i32], range: Range<i32>) {
         let mask = (1 << elements.len()) - 1;
         let expected: Vec<Subset<i32, u64>> =
             naive_subsets_in_range(elements, range.clone()).unwrap();
-        let actual = ehs(mask, elements, range);
+        let actual = iterate_subsets_in_range(mask, elements, range);
         assert_permutation(expected.into_iter(), actual);
     }
 
     proptest! {
         #[test]
-        fn prop_ehs(ref elements in vec(1i32..100, 1..10), b1 in 1i32..100, b2 in 1i32..100) {
+        fn prop_iterate_subsets_in_range(ref elements in vec(1i32..100, 1..10), b1 in 1i32..100, b2 in 1i32..100) {
             let range = if b1 < b2 {
                 b1..b2
             } else {
                 b2..b1
             };
-            test_ehs(elements, range);
+            test_iterate_subsets_in_range(elements, range);
        }
     }
     #[test]
-    fn unit_ehs_1() {
+    fn unit_iterate_subsets_in_range_1() {
         let elements = [2, 1];
         let range = 1..4;
-        test_ehs(&elements, range);
+        test_iterate_subsets_in_range(&elements, range);
     }
 }
