@@ -151,27 +151,28 @@ pub struct OrderedSubsets<T: Arith, D: OrderingDirection> {
     heap: BinaryHeap<HeapPair<T, D>>,
 }
 
-impl<T: Arith, D: OrderingDirection> OrderedSubsets<T, D> {
-    pub fn new(mask: u64, elements: &[T]) -> Self {
-        let (left_mask, right_mask) = split_mask(mask, elements);
-        let mut vec: Vec<Subset<T, u64>> = submasks(left_mask)
-            .map(|mask| Subset::new(mask, elements))
-            .collect();
-        vec.sort_unstable_by(|l, r| <D as OrderingDirection>::cmp(&l.sum, &r.sum));
-        let heap: BinaryHeap<HeapPair<T, D>> = submasks(right_mask)
-            .map(|mask| {
-                let fixed = Subset::new(mask, elements);
-                let union = Subset::union(&vec[0], &fixed);
-                HeapPair {
-                    fixed,
-                    union,
-                    index: 0,
-                    direction: PhantomData,
-                }
-            })
-            .collect();
-        OrderedSubsets { vec, heap }
-    }
+pub fn ordered_subsets<T: Arith, D: OrderingDirection>(
+    mask: u64,
+    elements: &[T],
+) -> OrderedSubsets<T, D> {
+    let (left_mask, right_mask) = split_mask(mask, elements);
+    let mut vec: Vec<Subset<T, u64>> = submasks(left_mask)
+        .map(|mask| Subset::new(mask, elements))
+        .collect();
+    vec.sort_unstable_by(|l, r| <D as OrderingDirection>::cmp(&l.sum, &r.sum));
+    let heap: BinaryHeap<HeapPair<T, D>> = submasks(right_mask)
+        .map(|mask| {
+            let fixed = Subset::new(mask, elements);
+            let union = Subset::union(&vec[0], &fixed);
+            HeapPair {
+                fixed,
+                union,
+                index: 0,
+                direction: PhantomData,
+            }
+        })
+        .collect();
+    OrderedSubsets { vec, heap }
 }
 
 impl<T: Arith, D: OrderingDirection + Debug> Iterator for OrderedSubsets<T, D> {
@@ -195,7 +196,7 @@ impl<T: Arith, D: OrderingDirection + Debug> Iterator for OrderedSubsets<T, D> {
 #[cfg(test)]
 mod tests {
     use proptest::collection::vec;
-    use subset::{all_subsets, Down, OrderedSubsets, Up};
+    use subset::{all_subsets, ordered_subsets, Down, OrderedSubsets, Up};
     proptest! {
         #[test]
         fn prop_ordered_subsets(ref elements in vec(1i32..100, 1..10)) {
@@ -204,7 +205,7 @@ mod tests {
                 all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
             expected.sort();
             let actual_iterator : OrderedSubsets<i32, Up> =
-                OrderedSubsets::new(mask, elements);
+                ordered_subsets(mask, elements);
             let actual : Vec<i32> = actual_iterator.map(|subset| subset.sum).collect();
             assert_eq!(
                 expected,
@@ -220,7 +221,7 @@ mod tests {
                 all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
             expected.sort_by(|l,r| l.cmp(r).reverse());
             let actual_iterator : OrderedSubsets<i32, Down> =
-                OrderedSubsets::new(mask, elements);
+                ordered_subsets(mask, elements);
             let actual : Vec<i32> = actual_iterator.map(|subset| subset.sum).collect();
             assert_eq!(
                 expected,

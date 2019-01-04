@@ -1,6 +1,5 @@
 use super::arith::Arith;
-use super::subset::{split_mask, submasks, Subset};
-use std::cmp::Reverse;
+use super::subset::{ordered_subsets, split_mask, Down, OrderedSubsets, Subset, Up};
 use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::ops::Range;
@@ -36,6 +35,12 @@ impl<T, I: Iterator<Item = T>> LazyQueue<T, I> {
         self.cache_through(index)?;
         Some(&self.cached[index])
     }
+    fn new(iter: I) -> Self {
+        LazyQueue {
+            cached: VecDeque::new(),
+            rest: iter,
+        }
+    }
 }
 impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> Iterator
     for EHS<T, I1, I2> where
@@ -66,19 +71,10 @@ pub fn ehs<T: Arith>(
     range: Range<T>,
 ) -> EHS<T, impl Iterator<Item = Subset<T, u64>>, impl Iterator<Item = Subset<T, u64>>> {
     let (left, right) = split_mask(mask, elements);
-    let mut ascending_vec: Vec<Subset<T, u64>> = submasks(left)
-        .map(|mask| Subset::new(mask, elements))
-        .collect();
-    ascending_vec.sort_by_key(|subset| subset.sum);
-    let ascending = LazyQueue {
-        cached: VecDeque::new(),
-        rest: ascending_vec.into_iter(),
-    };
-    let mut descending_vec: Vec<Subset<T, u64>> = submasks(right)
-        .map(|mask| Subset::new(mask, elements))
-        .collect();
-    descending_vec.sort_by_key(|subset| Reverse(subset.sum));
-    let descending = descending_vec.into_iter().peekable();
+    let ascending_raw: OrderedSubsets<_, Up> = ordered_subsets(left, elements);
+    let ascending = LazyQueue::new(ascending_raw);
+    let descending_raw: OrderedSubsets<_, Down> = ordered_subsets(right, elements);
+    let descending = descending_raw.peekable();
     let ascending_index = 0;
     let mut ehs = EHS {
         ascending,
@@ -121,13 +117,13 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
 #[cfg(test)]
 mod tests {
     use arith::Arith;
-    use ehs::{ehs, submasks, Subset};
+    use ehs::{ehs, Subset};
     use proptest::collection::vec;
     use std::collections::HashMap;
     use std::fmt::Debug;
     use std::hash::Hash;
     use std::ops::Range;
-    use subset::all_subsets;
+    use subset::{all_subsets, submasks};
 
     fn naive_subsets_in_range<T: Arith>(
         elements: &[T],
