@@ -1,26 +1,42 @@
 use arith::Arith;
 use ckk::n_kk;
 use ess::iterate_subsets_in_range;
-use std::mem::swap;
+use std::ops::Range;
 use subset::Subset;
 
 pub fn snp<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
-    let mask = (1 << n) - 1;
-    let mut current_partitioning = Vec::new();
+    let base_mask = (1 << n) - 1;
     let mut best_partitioning = n_kk(elements, n as usize).partitions;
-    let current_best = best_partitioning[0].sum;
+    let mut ub = best_partitioning[0].sum;
     let total = best_partitioning.iter().map(|subset| subset.sum).sum();
-    let mut snp = SNP {
-        elements,
-        n,
-        mask,
-        current_partitioning: &mut current_partitioning,
-        best_partitioning: &mut best_partitioning,
-        current_best,
-        total,
-    };
-    snp.snp_helper();
-    return best_partitioning;
+    let range = partition_range(ub, total, n);
+    let mut subsets_iterator = iterate_subsets_in_range(base_mask, elements, range);
+    while let Some(first_subset) = subsets_iterator.next() {
+        let mask = base_mask ^ first_subset.mask;
+        let total_remaining = total - first_subset.sum;
+        let child_ub = first_subset.sum + T::from(1);
+        let mut current_partitioning = vec![first_subset];
+        let mut snp = SNP {
+            elements,
+            n,
+            mask,
+            current_partitioning: &mut current_partitioning,
+            ub: child_ub,
+            total_remaining,
+        };
+        if snp.snp_helper() {
+            best_partitioning = current_partitioning.clone();
+            ub = current_partitioning[0].sum;
+            subsets_iterator.range = partition_range(ub, total, n);
+        }
+    }
+    best_partitioning
+}
+
+fn partition_range<T: Arith>(ub: T, total: T, n: u8) -> Range<T> {
+    //TODO: there are other lower bounds available.
+    let lb = T::from(1) + (total - T::from(1)) / T::from(n);
+    lb..ub
 }
 
 struct SNP<'a, T> {
@@ -28,39 +44,38 @@ struct SNP<'a, T> {
     n: u8,
     mask: u64,
     current_partitioning: &'a mut Vec<Subset<T, u64>>,
-    best_partitioning: &'a mut Vec<Subset<T, u64>>,
-    current_best: T,
+    ub: T,
     total_remaining: T,
 }
 
 impl<'a, T: Arith> SNP<'a, T> {
-    fn snp_helper(&'a mut self) {
-        let ub = self
-            .current_partitioning
-            .last()
-            .map_or(self.current_best, |subset| subset.sum);
-        //TODO: there are other lower bounds available.
-        let lb = T::from(1) + (self.total_remaining - T::from(1)) / T::from(self.n);
-        let range = lb..self.current_best;
-        let mut subsets_iter = iterate_subsets_in_range(self.mask, self.elements, range);
+    fn snp_helper(&'a mut self) -> bool {
+        let range = partition_range(self.ub, self.total_remaining, self.n);
         if self.n == 1 {
-            unimplemented!();
+            let last_subset = Subset::new(self.mask, self.elements);
+            assert!(range.contains(&last_subset.sum));
+            self.current_partitioning.push(last_subset);
+            return true;
         }
-        while let Some(first_subset) = subsets_iter.next() {
+        for first_subset in iterate_subsets_in_range(self.mask, self.elements, range) {
             let mask = self.mask ^ first_subset.mask;
             let total_remaining = self.total_remaining - first_subset.sum;
+            //TODO: does the trait I chose guarentee that +1 is successor?
+            let ub = first_subset.sum + T::from(1);
             self.current_partitioning.push(first_subset);
             let mut child = SNP {
                 elements: self.elements,
                 n: self.n - 1,
                 mask,
                 current_partitioning: self.current_partitioning,
-                best_partitioning: self.best_partitioning,
-                current_best: self.current_best,
+                ub,
                 total_remaining,
             };
-            child.snp_helper();
-            self.current_best = child.current_best;
+            if child.snp_helper() {
+                return true;
+            }
+            self.current_partitioning.pop();
         }
+        return false;
     }
 }

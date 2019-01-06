@@ -9,7 +9,7 @@ pub struct ESS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subse
     ascending: LazyQueue<Subset<T, u64>, I1>,
     ascending_index: usize,
     descending: Peekable<I2>,
-    range: Range<T>,
+    pub range: Range<T>, //TODO: make this private, add a "replace range" method
 }
 
 #[derive(Debug)]
