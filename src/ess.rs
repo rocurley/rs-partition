@@ -1,6 +1,7 @@
 use super::arith::Arith;
 use super::subset::{ordered_subsets, split_mask, Down, OrderedSubsets, Subset, Up};
 use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::iter::Peekable;
 use std::ops::Range;
 
@@ -81,7 +82,11 @@ pub fn iterate_subsets_in_range<T: Arith>(
     mask: u64,
     elements: &[T],
     range: Range<T>,
-) -> ESS<T, impl Iterator<Item = Subset<T, u64>>, impl Iterator<Item = Subset<T, u64>>> {
+) -> ESS<
+    T,
+    impl Iterator<Item = Subset<T, u64>> + Debug,
+    impl Iterator<Item = Subset<T, u64>> + Debug,
+> {
     let (left, right) = split_mask(mask, elements);
     let ascending_raw: OrderedSubsets<_, Up> = ordered_subsets(left, elements);
     let ascending = LazyQueue::new(ascending_raw);
@@ -227,5 +232,14 @@ mod tests {
         let elements = [2, 1];
         let range = 1..4;
         test_iterate_subsets_in_range(&elements, range);
+    }
+    #[test]
+    fn unit_iterate_subsets_in_range_2() {
+        let elements = [24, 17, 24, 25, 25];
+        let range = 58..66;
+        let mask = (1 << elements.len()) - 1;
+        let expected = vec![Subset::new(0b00111, &elements)];
+        let actual = iterate_subsets_in_range(mask, &elements, range);
+        assert_permutation(expected.into_iter(), actual);
     }
 }

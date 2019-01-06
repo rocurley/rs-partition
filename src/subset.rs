@@ -178,7 +178,6 @@ pub fn ordered_subsets<T: Arith, D: OrderingDirection>(
 impl<T: Arith, D: OrderingDirection + Debug> Iterator for OrderedSubsets<T, D> {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
-        println!("Stepping iterator: {:?}", self);
         let mut pair = self.heap.pop()?;
         pair.index += 1;
         match self.vec.get(pair.index) {

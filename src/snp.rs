@@ -1,24 +1,77 @@
 use arith::Arith;
 use ckk::n_kk;
 use ess::iterate_subsets_in_range;
+use std::iter::{empty, once};
 use std::ops::Range;
-use subset::Subset;
+use subset::{submasks, Subset};
+
+fn all_partitions<'a, T: Arith>(
+    mask: u64,
+    elements: &'a [T],
+    n: u8,
+    max: T,
+) -> Box<Iterator<Item = Vec<Subset<T, u64>>> + 'a> {
+    if n == 1 {
+        let subset = Subset::new(mask, elements);
+        if subset.sum <= max {
+            Box::new(once(vec![subset]))
+        } else {
+            Box::new(empty())
+        }
+    } else {
+        Box::new(
+            submasks(mask)
+                .filter_map(move |submask| {
+                    let subset = Subset::new(submask, elements);
+                    if subset.sum <= max {
+                        Some(subset)
+                    } else {
+                        None
+                    }
+                })
+                .flat_map(move |subset| {
+                    all_partitions(mask ^ subset.mask, elements, n - 1, subset.sum).map(
+                        move |mut rest| {
+                            rest.push(subset.clone());
+                            rest
+                        },
+                    )
+                }),
+        )
+    }
+}
+
+pub fn brute_force<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
+    let mask = (1 << elements.len()) - 1;
+    let total = elements.iter().fold(T::from(0), |acc, &x| acc + x);
+    let mut out = all_partitions(mask, elements, n, total)
+        .min_by_key(|partitioning| Some(partitioning.last()?.sum))
+        .unwrap();
+    out.reverse();
+    out
+}
 
 pub fn snp<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
-    let base_mask = (1 << n) - 1;
+    let base_mask = (1 << elements.len()) - 1;
     let mut best_partitioning = n_kk(elements, n as usize).partitions;
     let mut ub = best_partitioning[0].sum;
     let total = best_partitioning.iter().map(|subset| subset.sum).sum();
     let range = partition_range(ub, total, n);
+    println!(
+        "Starting with iterator: iterate_subsets_in_range({:?}, {:?}, {:?})",
+        base_mask, elements, &range
+    );
     let mut subsets_iterator = iterate_subsets_in_range(base_mask, elements, range);
+    //println!("Starting with iterator: {:?}", subsets_iterator);
     while let Some(first_subset) = subsets_iterator.next() {
+        println!("Starting outer loop with {:?}", first_subset);
         let mask = base_mask ^ first_subset.mask;
         let total_remaining = total - first_subset.sum;
         let child_ub = first_subset.sum + T::from(1);
         let mut current_partitioning = vec![first_subset];
         let mut snp = SNP {
             elements,
-            n,
+            n: n - 1,
             mask,
             current_partitioning: &mut current_partitioning,
             ub: child_ub,
@@ -39,6 +92,7 @@ fn partition_range<T: Arith>(ub: T, total: T, n: u8) -> Range<T> {
     lb..ub
 }
 
+#[derive(Debug)]
 struct SNP<'a, T> {
     elements: &'a [T],
     n: u8,
@@ -50,6 +104,7 @@ struct SNP<'a, T> {
 
 impl<'a, T: Arith> SNP<'a, T> {
     fn snp_helper(&'a mut self) -> bool {
+        println!("Calling helper with: {:?}", self);
         let range = partition_range(self.ub, self.total_remaining, self.n);
         if self.n == 1 {
             let last_subset = Subset::new(self.mask, self.elements);
@@ -86,7 +141,8 @@ mod tests {
     use ckk::ckk;
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
-    use snp::snp;
+    use snp::{brute_force, snp};
+    use subset::Subset;
     proptest! {
         #[test]
         fn prop_snp_gcc(ref elements in vec(1i32..100, 1..10)) {
@@ -107,5 +163,25 @@ mod tests {
             let snp_score = snp_results[0].sum;
             assert_eq!(snp_score, ckk_score, "SNP got {:?}, CKK got {:?}", snp_results, ckk_results);
        }
+    }
+    proptest! {
+        #[test]
+        fn prop_snp_brute(ref elements in vec(1i32..100, 1..10)) {
+            let brute_results = brute_force(&elements, 4);
+            let brute_score = brute_results[0].sum;
+            let snp_results = snp(&elements, 4);
+            let snp_score = snp_results[0].sum;
+            assert_eq!(snp_score, brute_score, "SNP got {:?}, brute force got {:?}", snp_results, brute_results);
+       }
+    }
+    #[test]
+    fn unit_snp() {
+        let elements = [24, 17, 24, 25, 25];
+        let snp_results = snp(&elements, 2);
+        let expected = vec![
+            Subset::new(0b00111, &elements),
+            Subset::new(0b11000, &elements),
+        ];
+        assert_eq!(snp_results, expected);
     }
 }
