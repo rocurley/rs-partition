@@ -79,3 +79,33 @@ impl<'a, T: Arith> SNP<'a, T> {
         return false;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate test;
+    use ckk::ckk;
+    use gcc::find_best_partitioning;
+    use proptest::collection::vec;
+    use snp::snp;
+    proptest! {
+        #[test]
+        fn prop_snp_gcc(ref elements in vec(1i32..100, 1..10)) {
+            let (gcc_results, _) = find_best_partitioning(2, &elements);
+            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
+            let gcc_score = *gcc_sums.iter().max().unwrap();
+            let snp_results = snp(&elements, 2);
+            let snp_score = snp_results[0].sum;
+            assert_eq!(snp_score, gcc_score, "SNP got {:?}, gcc got {:?}", snp_results, gcc_results);
+       }
+    }
+    proptest! {
+        #[test]
+        fn prop_snp_ckk(ref elements in vec(1i32..100, 1..10)) {
+            let ckk_results = ckk(&elements);
+            let ckk_score = ckk_results.new_score();
+            let snp_results = snp(&elements, 2);
+            let snp_score = snp_results[0].sum;
+            assert_eq!(snp_score, ckk_score, "SNP got {:?}, CKK got {:?}", snp_results, ckk_results);
+       }
+    }
+}

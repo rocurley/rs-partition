@@ -5,7 +5,7 @@ use super::arith::Arith;
 use num::{one, zero};
 use std::iter::Iterator;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Partition<T: Arith> {
     sum: T,
     length: usize,

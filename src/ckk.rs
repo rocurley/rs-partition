@@ -48,6 +48,9 @@ impl<T: Arith> KKPartition<T> {
             score: x,
         }
     }
+    pub fn new_score(&self) -> T {
+        self.left.iter().fold(T::from(0), |acc, &x| acc + x)
+    }
 }
 
 #[derive(Debug)]
