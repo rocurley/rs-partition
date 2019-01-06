@@ -70,7 +70,6 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
             }
             (true, false) => {
                 //Too small. Descending will only decrease, so drop the current ascending.
-                assert_eq!(0, self.ascending_index);
                 self.ascending.pop();
                 self.next()
             }

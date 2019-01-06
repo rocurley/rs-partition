@@ -10,4 +10,5 @@ mod arith;
 pub mod ckk;
 pub mod ess;
 pub mod gcc;
+pub mod snp;
 pub mod subset;

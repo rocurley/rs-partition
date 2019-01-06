@@ -320,28 +320,28 @@ fn rnp_helper<T: Arith>(
     }
 }
 #[derive(Eq, Debug, Clone)]
-pub struct NKKPartition<T: Arith> {
-    partitions: Vec<Subset<T, u64>>,
+pub struct Partitioning<T: Arith> {
+    pub partitions: Vec<Subset<T, u64>>,
 }
 
-impl<T: Arith> PartialEq for NKKPartition<T> {
+impl<T: Arith> PartialEq for Partitioning<T> {
     fn eq(&self, other: &Self) -> bool {
         self.score() == other.score()
     }
 }
-impl<T: Arith> PartialOrd for NKKPartition<T> {
+impl<T: Arith> PartialOrd for Partitioning<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.score().cmp(&other.score()))
     }
 }
-impl<T: Arith> Ord for NKKPartition<T> {
+impl<T: Arith> Ord for Partitioning<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.score().cmp(&other.score())
     }
 }
 
-impl<T: Arith> NKKPartition<T> {
-    fn score(&self) -> T {
+impl<T: Arith> Partitioning<T> {
+    pub fn score(&self) -> T {
         let max = self.partitions[0].sum;
         let min = self.partitions.last().unwrap().sum;
         max - min
@@ -365,14 +365,14 @@ impl<T: Arith> NKKPartition<T> {
             n
         ];
         partitions[0] = Subset::new(mask, elements);
-        NKKPartition { partitions }
+        Partitioning { partitions }
     }
 }
 
-pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> NKKPartition<T> {
-    let mut heap: BinaryHeap<NKKPartition<T>> = (0..elements.len())
+pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
+    let mut heap: BinaryHeap<Partitioning<T>> = (0..elements.len())
         .into_iter()
-        .map(|i| NKKPartition::singleton(1 << i, elements, n))
+        .map(|i| Partitioning::singleton(1 << i, elements, n))
         .collect();
     loop {
         let mut first = heap.pop().expect("heap is empty");
