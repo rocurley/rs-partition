@@ -57,14 +57,8 @@ pub fn snp<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
     let mut ub = best_partitioning[0].sum;
     let total = best_partitioning.iter().map(|subset| subset.sum).sum();
     let range = partition_range(ub, total, n);
-    println!(
-        "Starting with iterator: iterate_subsets_in_range({:?}, {:?}, {:?})",
-        base_mask, elements, &range
-    );
     let mut subsets_iterator = iterate_subsets_in_range(base_mask, elements, range);
-    //println!("Starting with iterator: {:?}", subsets_iterator);
     while let Some(first_subset) = subsets_iterator.next() {
-        println!("Starting outer loop with {:?}", first_subset);
         let mask = base_mask ^ first_subset.mask;
         let total_remaining = total - first_subset.sum;
         let child_ub = first_subset.sum + T::from(1);
@@ -104,7 +98,6 @@ struct SNP<'a, T> {
 
 impl<'a, T: Arith> SNP<'a, T> {
     fn snp_helper(&'a mut self) -> bool {
-        println!("Calling helper with: {:?}", self);
         let range = partition_range(self.ub, self.total_remaining, self.n);
         if self.n == 1 {
             let last_subset = Subset::new(self.mask, self.elements);
@@ -137,7 +130,10 @@ impl<'a, T: Arith> SNP<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    extern crate cpuprofiler;
     extern crate test;
+    use self::cpuprofiler::PROFILER;
+    use self::test::Bencher;
     use ckk::ckk;
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
@@ -183,5 +179,16 @@ mod tests {
             Subset::new(0b11000, &elements),
         ];
         assert_eq!(snp_results, expected);
+    }
+    #[bench]
+    fn bench_snp(b: &mut Bencher) {
+        let elements = vec![
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            537584, 537584, 537584,
+        ];
+        PROFILER.lock().unwrap().start("snp.profile").unwrap();
+        b.iter(|| snp(&elements, 4));
+        PROFILER.lock().unwrap().stop().unwrap();
     }
 }

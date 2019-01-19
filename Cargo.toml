@@ -16,3 +16,6 @@ path = "src/lib.rs"
 num = "0.2.0"
 cpuprofiler = "0.0.3"
 proptest = "0.7"
+
+[profile.release]
+debug=true

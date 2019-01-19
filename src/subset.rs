@@ -194,6 +194,8 @@ impl<T: Arith, D: OrderingDirection + Debug> Iterator for OrderedSubsets<T, D> {
 
 #[cfg(test)]
 mod tests {
+    extern crate test;
+    use self::test::Bencher;
     use proptest::collection::vec;
     use subset::{all_subsets, ordered_subsets, Down, OrderedSubsets, Up};
     proptest! {
@@ -227,5 +229,15 @@ mod tests {
                 actual
             );
        }
+    }
+    #[bench]
+    fn bench_ordered_subsets(b: &mut Bencher) {
+        let elements = [
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            537584, 537584, 537584,
+        ];
+        let mask = (1 << elements.len()) - 1;
+        b.iter(|| ordered_subsets::<i32, Up>(mask, &elements).fold(0, |acc, x| acc + x.sum));
     }
 }

@@ -2,8 +2,9 @@ extern crate cpuprofiler;
 extern crate num;
 extern crate partition_lib;
 
+use self::cpuprofiler::PROFILER;
 use num::Integer;
-use partition_lib::ckk;
+use partition_lib::snp;
 use std::convert::From;
 use std::env::args;
 use std::fmt::{Debug, Display};
@@ -18,10 +19,12 @@ impl<T> Arith for T where
 
 fn main() {
     let string_args: Vec<String> = args().collect();
-    let n_partitions: usize = string_args[1].parse().expect("Couldn't parse argument");
+    let n_partitions: u8 = string_args[1].parse().expect("Couldn't parse argument");
+    /*
     if n_partitions != 4 {
         panic!("Current rnp implementation only works with 4 partitons")
     }
+    */
     let mut input = String::new();
     stdin()
         .read_line(&mut input)
@@ -29,6 +32,8 @@ fn main() {
     let elements_result: Result<Vec<i32>, std::num::ParseIntError> =
         input.trim().split(",").map(|i| i.parse()).collect();
     let elements: Vec<i32> = elements_result.expect("Couldn't parse input");
-    let partitions = ckk::rnp(&elements);
+    PROFILER.lock().unwrap().start("main.profile").unwrap();
+    let partitions = snp::snp(&elements, n_partitions);
+    PROFILER.lock().unwrap().stop().unwrap();
     println!("{:?}", partitions.to_vec());
 }
