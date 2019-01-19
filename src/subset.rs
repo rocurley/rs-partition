@@ -238,6 +238,6 @@ mod tests {
             537584, 537584, 537584,
         ];
         let mask = (1 << elements.len()) - 1;
-        b.iter(|| ordered_subsets::<i32, Up>(mask, &elements).fold(0, |acc, x| acc + x.sum));
+        b.iter(|| ordered_subsets::<i32, Up>(mask, &elements).fold(0, |acc, x| acc ^ x.sum));
     }
 }
