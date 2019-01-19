@@ -1,5 +1,6 @@
 use super::arith::Arith;
 use std::cmp::Ordering;
+use std::collections::binary_heap::PeekMut;
 use std::collections::BinaryHeap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -178,14 +179,13 @@ pub fn ordered_subsets<T: Arith, D: OrderingDirection>(
 impl<T: Arith, D: OrderingDirection + Debug> Iterator for OrderedSubsets<T, D> {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
-        let mut pair = self.heap.pop()?;
+        let mut pair = self.heap.peek_mut()?;
         pair.index += 1;
         match self.vec.get(pair.index) {
-            None => Some(pair.union),
+            None => Some(PeekMut::pop(pair).union),
             Some(unfixed) => {
                 let mut next_union = Subset::union(&unfixed, &pair.fixed);
                 swap(&mut pair.union, &mut next_union);
-                self.heap.push(pair);
                 Some(next_union)
             }
         }
