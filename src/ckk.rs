@@ -8,9 +8,9 @@ use std::mem::swap;
 
 #[derive(Eq, Debug, Clone)]
 pub struct KKPartition<T: Arith> {
-    left: Vec<T>,
-    right: Vec<T>,
-    score: T,
+    pub left: Vec<T>,
+    pub right: Vec<T>,
+    pub score: T,
 }
 
 impl<T: Arith> PartialEq for KKPartition<T> {
@@ -30,18 +30,18 @@ impl<T: Arith> Ord for KKPartition<T> {
 }
 
 impl<T: Arith> KKPartition<T> {
-    fn merge(&mut self, mut other: Self) {
+    pub fn merge(&mut self, mut other: Self) {
         self.left.append(&mut other.right);
         self.right.append(&mut other.left);
         self.score -= other.score;
     }
-    fn merge_rev(&mut self, mut other: Self) {
+    pub fn merge_rev(&mut self, mut other: Self) {
         self.left.append(&mut other.left);
         self.right.append(&mut other.right);
         self.score += other.score;
     }
 
-    fn singleton(x: T) -> Self {
+    pub fn singleton(x: T) -> Self {
         Self {
             left: vec![x],
             right: Vec::new(),
@@ -50,30 +50,6 @@ impl<T: Arith> KKPartition<T> {
     }
     pub fn new_score(&self) -> T {
         self.left.iter().fold(T::from(0), |acc, &x| acc + x)
-    }
-}
-
-#[derive(Debug)]
-pub enum RNPResult<T: Arith> {
-    TwoWay(KKPartition<T>),
-    EvenSplit(Box<RNPResult<T>>, Box<RNPResult<T>>),
-    OddSplit(Vec<T>, Box<RNPResult<T>>),
-}
-impl<T: Arith> RNPResult<T> {
-    pub fn to_vec(&self) -> Vec<&[T]> {
-        match self {
-            RNPResult::TwoWay(kk) => vec![&kk.left, &kk.right],
-            RNPResult::EvenSplit(l, r) => {
-                let mut v = l.to_vec();
-                v.append(&mut r.to_vec());
-                v
-            }
-            RNPResult::OddSplit(first, rest) => {
-                let mut v = vec![first.as_slice()];
-                v.append(&mut rest.to_vec());
-                v
-            }
-        }
     }
 }
 
@@ -269,58 +245,6 @@ fn ckk_raw<T: Arith>(
     panic!("Couldn't find the original first");
 }
 
-pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
-    let mut upper_bound = n_kk(elements, 4).score();
-    let mut best = None;
-    let heap: BinaryHeap<KKPartition<T>> = elements
-        .iter()
-        .map(|&x| KKPartition::singleton(x))
-        .collect();
-    rnp_helper(heap, &mut upper_bound, &mut best);
-    best.expect("KK heursitic was optimal, which isn't properly handled yet :(")
-}
-
-fn rnp_helper<T: Arith>(
-    mut heap: BinaryHeap<KKPartition<T>>,
-    upper_bound: &mut T,
-    best: &mut Option<RNPResult<T>>,
-) {
-    let mut first = heap.pop().expect("heap is empty");
-    match heap.pop() {
-        None => {
-            if first.score / 2.into() < *upper_bound {
-                let left = ckk(&first.left);
-                if (left.score + first.score) / 2.into() < *upper_bound {
-                    let right = ckk(&first.right);
-                    let score = (first.score + right.score + left.score) / 2.into();
-                    if score < *upper_bound {
-                        *upper_bound = score;
-                        *best = Some(RNPResult::EvenSplit(
-                            Box::new(RNPResult::TwoWay(left)),
-                            Box::new(RNPResult::TwoWay(right)),
-                        ));
-                    }
-                }
-            }
-        }
-        Some(snd) => {
-            let rest_score = snd.score + heap.iter().map(|p| p.score).sum();
-            if (first.score > rest_score) && ((first.score - rest_score) / 2.into() > *upper_bound)
-            {
-                return;
-            }
-            let mut new_heap = heap.clone();
-            let mut new_first = first.clone();
-            let new_snd = snd.clone();
-            new_first.merge(new_snd);
-            new_heap.push(new_first);
-            rnp_helper(new_heap, upper_bound, best);
-            first.merge_rev(snd);
-            heap.push(first);
-            rnp_helper(heap, upper_bound, best);
-        }
-    }
-}
 #[derive(Eq, Debug, Clone)]
 pub struct Partitioning<T: Arith> {
     pub partitions: Vec<Subset<T, u64>>,
@@ -391,8 +315,7 @@ pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk, old, ckk_raw, old_raw, kk, n_kk, rnp};
-    use gcc::find_best_partitioning;
+    use ckk::{ckk, old, ckk_raw, old_raw, kk, n_kk};
     use proptest::collection::vec;
     proptest! {
         #[test]
@@ -427,32 +350,6 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
-            let (gcc_results, _) = find_best_partitioning(4, &elements);
-            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
-            let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
-            let rnp_results = rnp(&elements);
-            let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.iter().sum()).collect();
-            let rnp_score = rnp_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
-            /*
-            let mut gcc_sorted : Vec<Vec<i32>> = gcc_results.iter_mut().map(|p| {
-                let mut els = p.to_vec();
-                els.sort();
-                els
-            }).collect();
-            gcc_sorted.sort();
-            let mut rnp_sorted : Vec<Vec<i32>> = rnp_results.to_vec().into_iter().map(|els| {
-                let mut vec = els.to_vec();
-                vec.sort();
-                vec
-            }).collect();
-            rnp_sorted.sort();
-            */
-            assert_eq!(rnp_score, gcc_score);
-       }
-    }
-    proptest! {
-        #[test]
         fn prop_n_kk(ref elements in vec(1_i32..100, 1..10)) {
             let partition_1 = kk(elements).score;
             let partition_2 = n_kk(elements,2).score();
@@ -480,15 +377,5 @@ mod tests {
             537584, 537584, 537584,
         ];
         b.iter(|| ckk(&elements));
-    }
-    #[bench]
-    fn bench_rnp(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| rnp(&elements));
     }
 }

@@ -10,6 +10,7 @@ extern crate num;
 extern crate proptest;
 mod arith;
 pub mod ckk;
+pub mod rnp;
 pub mod ess;
 pub mod gcc;
 pub mod snp;
