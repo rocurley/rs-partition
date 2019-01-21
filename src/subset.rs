@@ -82,6 +82,13 @@ impl Iterator for Submasks where {
         self.submask &= self.mask;
         Some(self.submask)
     }
+    /*
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let upper = (self.submask as usize).checked_add(1);
+        let lower = 1 << self.mask.count_ones();
+        (lower, upper)
+    }
+    */
 }
 
 pub fn submasks(mask: u64) -> Submasks {

@@ -15,7 +15,8 @@ use std::ops::{AddAssign, SubAssign};
 trait Arith: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display {}
 impl<T> Arith for T where
     T: Integer + AddAssign + SubAssign + From<u8> + Clone + Copy + Sum + Debug + Display
-{}
+{
+}
 
 fn main() {
     let string_args: Vec<String> = args().collect();
@@ -30,7 +31,7 @@ fn main() {
         .read_line(&mut input)
         .expect("Couldn't read from stdin");
     let elements_result: Result<Vec<i32>, std::num::ParseIntError> =
-        input.trim().split(",").map(|i| i.parse()).collect();
+        input.trim().split(',').map(|i| i.parse()).collect();
     let elements: Vec<i32> = elements_result.expect("Couldn't parse input");
     PROFILER.lock().unwrap().start("main.profile").unwrap();
     let partitions = snp::snp(&elements, n_partitions);

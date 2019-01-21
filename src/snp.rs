@@ -124,7 +124,7 @@ impl<'a, T: Arith> SNP<'a, T> {
             }
             self.current_partitioning.pop();
         }
-        return false;
+        false
     }
 }
 

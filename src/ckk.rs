@@ -79,7 +79,7 @@ impl<T: Arith> RNPResult<T> {
 
 pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut heap: BinaryHeap<KKPartition<T>> = elements
-        .into_iter()
+        .iter()
         .map(|&x| KKPartition::singleton(x))
         .collect();
     loop {
@@ -103,7 +103,7 @@ enum Direction {
 
 fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPartition<T> {
     let mut heap: BinaryHeap<KKPartition<T>> = elements
-        .into_iter()
+        .iter()
         .map(|&x| KKPartition::singleton(x))
         .collect();
     for direction in directions {
@@ -123,14 +123,14 @@ fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPa
     for p in heap {
         first.merge(p);
     }
-    return first;
+    first
 }
 
 pub fn ckk_old<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best_directions = Vec::with_capacity(elements.len());
     let mut directions = Vec::with_capacity(elements.len());
-    let heap = elements.iter().map(|x| x.clone()).collect();
-    let mut best = elements.iter().map(|x| x.clone()).sum();
+    let heap = elements.iter().cloned().collect();
+    let mut best = elements.iter().cloned().sum();
     ckk_raw_old(heap, &mut directions, &mut best, &mut best_directions);
     reconstruct_ckk(elements, best_directions)
 }
@@ -150,7 +150,7 @@ fn ckk_raw_old<T: Arith>(
             }
         }
         Some(snd) => {
-            let sum_rest: T = heap.iter().map(|x| *x).sum();
+            let sum_rest: T = heap.iter().cloned().sum();
             if first >= snd + sum_rest {
                 let best_possible_score = first - snd - sum_rest;
                 if *best > best_possible_score {
@@ -175,7 +175,7 @@ fn ckk_raw_old<T: Arith>(
 pub fn ckk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best_directions = Vec::with_capacity(elements.len());
     let mut directions = Vec::with_capacity(elements.len());
-    let mut best = elements.iter().map(|x| x.clone()).sum();
+    let mut best = elements.iter().cloned().sum();
     let mut work_elements = elements.to_vec();
     let sum = elements.iter().cloned().sum();
     ckk_raw(
@@ -199,7 +199,7 @@ fn ckk_raw<T: Arith>(
     best_directions: &mut Vec<Direction>,
 ) {
     let (first, tail) = elements.split_first_mut().expect("elements is empty");
-    let original_first = first.clone();
+    let original_first = *first;
     let snd_val: T = match tail.split_first_mut() {
         None => {
             if *best > *first {
@@ -273,7 +273,7 @@ pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
     let mut upper_bound = n_kk(elements, 4).score();
     let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
-        .into_iter()
+        .iter()
         .map(|&x| KKPartition::singleton(x))
         .collect();
     rnp_helper(heap, &mut upper_bound, &mut best);
@@ -305,10 +305,9 @@ fn rnp_helper<T: Arith>(
         }
         Some(snd) => {
             let rest_score = snd.score + heap.iter().map(|p| p.score).sum();
-            if first.score > rest_score {
-                if (first.score - rest_score) / 2.into() > *upper_bound {
-                    return;
-                }
+            if (first.score > rest_score) && ((first.score - rest_score) / 2.into() > *upper_bound)
+            {
+                return;
             }
             let mut new_heap = heap.clone();
             let mut new_first = first.clone();
@@ -374,7 +373,6 @@ impl<T: Arith> Partitioning<T> {
 
 pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
     let mut heap: BinaryHeap<Partitioning<T>> = (0..elements.len())
-        .into_iter()
         .map(|i| Partitioning::singleton(1 << i, elements, n))
         .collect();
     loop {

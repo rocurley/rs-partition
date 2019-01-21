@@ -22,12 +22,12 @@ impl<T: Arith> Partition<T> {
     }
     fn push(&mut self, x: T) {
         self.sum += x;
-        *&mut self.elements[self.length] = x;
+        self.elements[self.length] = x;
         self.length += 1;
     }
     fn pop(&mut self) {
         self.length -= 1;
-        self.sum -= *&self.elements[self.length];
+        self.sum -= self.elements[self.length];
     }
     pub fn print(&self) {
         println!("{:?} : {:?}", self.sum, &self.elements[0..self.length]);
@@ -64,7 +64,7 @@ fn expand_partitions<T: Arith>(
     current_best: &mut (Vec<Partition<T>>, T),
     constants: Constants<T>,
 ) {
-    if elements.len() == 0 {
+    if elements.is_empty() {
         consider_partitioning(current_best, partitions);
         return;
     }
@@ -105,7 +105,7 @@ fn expand_partitions<T: Arith>(
 fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
     let mut max_sum = partitions[0].sum;
     let mut min_sum = max_sum;
-    for partition in partitions[1..].into_iter() {
+    for partition in partitions[1..].iter() {
         if partition.sum > max_sum {
             max_sum = partition.sum;
         } else if partition.sum < min_sum {
@@ -131,7 +131,7 @@ pub fn find_best_partitioning<T: Arith>(
     let score = score_partitioning(&best_partitioning);
     let mut scored_best_partitioning = (best_partitioning, score);
     let constants = Constants {
-        total: elements.iter().map(|x| x.clone()).sum(),
+        total: elements.iter().cloned().sum(),
         n_partitions: n_partitions.into(),
     };
     expand_partitions(
