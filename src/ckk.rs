@@ -42,7 +42,7 @@ impl<T: Arith> KKPartition<T> {
     }
 
     fn singleton(x: T) -> Self {
-        KKPartition {
+        Self {
             left: vec![x],
             right: Vec::new(),
             score: x,
@@ -126,16 +126,16 @@ fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPa
     first
 }
 
-pub fn ckk_old<T: Arith>(elements: &[T]) -> KKPartition<T> {
+pub fn old<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best_directions = Vec::with_capacity(elements.len());
     let mut directions = Vec::with_capacity(elements.len());
     let heap = elements.iter().cloned().collect();
     let mut best = elements.iter().cloned().sum();
-    ckk_raw_old(heap, &mut directions, &mut best, &mut best_directions);
+    old_raw(heap, &mut directions, &mut best, &mut best_directions);
     reconstruct_ckk(elements, best_directions)
 }
 
-fn ckk_raw_old<T: Arith>(
+fn old_raw<T: Arith>(
     mut heap: BinaryHeap<T>,
     directions: &mut Vec<Direction>,
     best: &mut T,
@@ -162,11 +162,11 @@ fn ckk_raw_old<T: Arith>(
             let mut new_heap = heap.clone();
             new_heap.push(first - snd);
             directions.push(Direction::Diff);
-            ckk_raw_old(new_heap, directions, best, best_directions);
+            old_raw(new_heap, directions, best, best_directions);
             directions.pop();
             directions.push(Direction::Sum);
             heap.push(first + snd);
-            ckk_raw_old(heap, directions, best, best_directions);
+            old_raw(heap, directions, best, best_directions);
             directions.pop();
         }
     }
@@ -367,7 +367,7 @@ impl<T: Arith> Partitioning<T> {
             n
         ];
         partitions[0] = Subset::new(mask, elements);
-        Partitioning { partitions }
+        Self { partitions }
     }
 }
 
@@ -391,20 +391,20 @@ pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk, ckk_old, ckk_raw, ckk_raw_old, kk, n_kk, rnp};
+    use ckk::{ckk, old, ckk_raw, old_raw, kk, n_kk, rnp};
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
     proptest! {
         #[test]
-        fn prop_compare_raw(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_compare_raw(ref elements in vec(1_i32..100, 1..10)) {
             let mut best_directions_1 = Vec::with_capacity(elements.len());
             let mut directions_1 = Vec::with_capacity(elements.len());
-            let heap = elements.iter().map(|x| x.clone()).collect();
-            let mut best_1 = elements.iter().map(|x| x.clone()).sum();
-            ckk_raw_old(heap, &mut directions_1, &mut best_1, &mut best_directions_1);
+            let heap = elements.iter().cloned().collect();
+            let mut best_1 = elements.iter().cloned().sum();
+            old_raw(heap, &mut directions_1, &mut best_1, &mut best_directions_1);
             let mut best_directions_2 = Vec::with_capacity(elements.len());
             let mut directions_2 = Vec::with_capacity(elements.len());
-            let mut best_2 = elements.iter().map(|x| x.clone()).sum();
+            let mut best_2 = elements.iter().cloned().sum();
             let mut work_elements_2 = elements.to_vec();
             let sum = elements.iter().cloned().sum();
             ckk_raw(&mut work_elements_2, sum, &mut directions_2, &mut best_2, &mut best_directions_2);
@@ -413,8 +413,8 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_compare_ckk(ref elements in vec(1i32..100, 2..10)) {
-            let partition_1 = ckk_old(elements);
+        fn prop_compare_ckk(ref elements in vec(1_i32..100, 2..10)) {
+            let partition_1 = old(elements);
             let partition_2 = ckk(elements);
             assert_eq!(partition_1, partition_2);
        }
@@ -427,7 +427,7 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_rnp_gcc(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
             let (gcc_results, _) = find_best_partitioning(4, &elements);
             let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
             let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
@@ -453,7 +453,7 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_n_kk(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_n_kk(ref elements in vec(1_i32..100, 1..10)) {
             let partition_1 = kk(elements).score;
             let partition_2 = n_kk(elements,2).score();
             assert_eq!(partition_1, partition_2);
@@ -461,16 +461,18 @@ mod tests {
     }
     #[bench]
     fn bench_ckk(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
             2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
             537584, 537584, 537584,
         ];
-        b.iter(|| ckk_old(&elements));
+        b.iter(|| old(&elements));
     }
     #[bench]
     fn bench_ckk_2(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
@@ -481,6 +483,7 @@ mod tests {
     }
     #[bench]
     fn bench_rnp(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,

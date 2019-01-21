@@ -21,10 +21,10 @@ impl<T: Arith> Subset<T, u64> {
             }
             selected_bit <<= 1;
         }
-        Subset { sum, mask }
+        Self { sum, mask }
     }
     pub fn union(left: &Self, right: &Self) -> Self {
-        Subset {
+        Self {
             sum: left.sum + right.sum,
             mask: left.mask | right.mask,
         }
@@ -36,7 +36,7 @@ pub fn all_subsets<T: Arith>(elements: &[T]) -> Option<(Vec<Subset<T, u64>>)> {
         //TODO: 64 is doable but requires care on the bitshift
         return None;
     }
-    let subset_count = 1u64 << elements.len(); //TODO: dedupe
+    let subset_count = 1_u64 << elements.len(); //TODO: dedupe
     Some(
         (0..subset_count)
             .map(|mask| Subset::new(mask, elements))
@@ -46,19 +46,15 @@ pub fn all_subsets<T: Arith>(elements: &[T]) -> Option<(Vec<Subset<T, u64>>)> {
 
 pub fn split_mask<T: Arith>(mask: u64, elements: &[T]) -> (u64, u64) {
     let mut element_masks = Vec::with_capacity(mask.count_ones() as usize);
+    #[allow(clippy::needless_range_loop)]
     for i in 0..64 {
         if (mask & 1 << i) > 0 {
             element_masks.push((elements[i], 1 << i));
         }
     }
     let (smalls, larges) = element_masks.split_at(element_masks.len() / 2);
-    let (mut small_mask, mut large_mask) = (0, 0);
-    for (_, element_mask) in smalls {
-        small_mask |= element_mask;
-    }
-    for (_, element_mask) in larges {
-        large_mask |= element_mask;
-    }
+    let small_mask = smalls.iter().fold(0, |acc, (_, element_mask)| acc | element_mask);
+    let large_mask = larges.iter().fold(0, |acc, (_, element_mask)| acc | element_mask);
     (small_mask, large_mask)
 }
 
@@ -207,7 +203,7 @@ mod tests {
     use subset::{all_subsets, ordered_subsets, Down, OrderedSubsets, Up};
     proptest! {
         #[test]
-        fn prop_ordered_subsets(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_ordered_subsets(ref elements in vec(1_i32..100, 1..10)) {
             let mask = (1 << elements.len()) -1;
             let mut expected : Vec<i32> =
                 all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
@@ -223,7 +219,7 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_ordered_subsets_down(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_ordered_subsets_down(ref elements in vec(1_i32..100, 1..10)) {
             let mask = (1 << elements.len()) -1;
             let mut expected : Vec<i32> =
                 all_subsets(elements).unwrap().into_iter().map(|subset| subset.sum).collect();
@@ -239,6 +235,7 @@ mod tests {
     }
     #[bench]
     fn bench_ordered_subsets(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
         let elements = [
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,

@@ -14,7 +14,7 @@ pub struct Partition<T: Arith> {
 
 impl<T: Arith> Partition<T> {
     fn new(capacity: usize) -> Self {
-        Partition {
+        Self {
             sum: zero(),
             length: 0,
             elements: vec![zero(); capacity].into_boxed_slice(),

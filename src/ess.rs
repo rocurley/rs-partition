@@ -37,7 +37,7 @@ impl<T, I: Iterator<Item = T>> LazyQueue<T, I> {
         Some(&self.cached[index])
     }
     fn new(iter: I) -> Self {
-        LazyQueue {
+        Self {
             cached: VecDeque::new(),
             rest: iter,
         }
@@ -150,10 +150,10 @@ mod tests {
     }
     #[test]
     fn unit_submasks() {
-        let mask = 0b10101u64;
+        let mask = 0b_10101_u64;
         let mut expected = vec![
-            0b00000u64, 0b00001u64, 0b00100u64, 0b00101u64, 0b10000u64, 0b10001u64, 0b10100u64,
-            0b10101u64,
+            0b_00000, 0b_00001, 0b_00100, 0b_00101, 0b_10000, 0b_10001, 0b_10100,
+            0b_10101,
         ];
         expected.reverse();
         let submasks_iterator = submasks(mask);
@@ -174,7 +174,7 @@ mod tests {
             *right_count += 1;
         }
         counts.retain(|_, (l, r)| l != r);
-        if counts.len() == 0 {
+        if counts.is_empty() {
             return;
         }
         panic!(
@@ -187,14 +187,14 @@ mod tests {
     fn unit_not_permutation_1() {
         let left = [];
         let right = [1, 2, 3, 4];
-        assert_permutation(left.into_iter(), right.into_iter());
+        assert_permutation(left.iter(), right.iter());
     }
     #[test]
     #[should_panic]
     fn unit_not_permutation_2() {
         let left = [1, 2, 3];
         let right = [1, 2, 3, 4];
-        assert_permutation(left.into_iter(), right.into_iter());
+        assert_permutation(left.iter(), right.iter());
     }
     #[test]
     fn unit_naive_subsets() {
@@ -218,7 +218,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn prop_iterate_subsets_in_range(ref elements in vec(1i32..100, 1..10), b1 in 1i32..100, b2 in 1i32..100) {
+        fn prop_iterate_subsets_in_range(ref elements in vec(1_i32..100, 1..10), b1 in 1_i32..100, b2 in 1_i32..100) {
             let range = if b1 < b2 {
                 b1..b2
             } else {

@@ -141,7 +141,7 @@ mod tests {
     use subset::Subset;
     proptest! {
         #[test]
-        fn prop_snp_gcc(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..10)) {
             let (gcc_results, _) = find_best_partitioning(2, &elements);
             let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
             let gcc_score = *gcc_sums.iter().max().unwrap();
@@ -152,7 +152,7 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_snp_ckk(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_snp_ckk(ref elements in vec(1_i32..100, 1..10)) {
             let ckk_results = ckk(&elements);
             let ckk_score = ckk_results.new_score();
             let snp_results = snp(&elements, 2);
@@ -162,7 +162,7 @@ mod tests {
     }
     proptest! {
         #[test]
-        fn prop_snp_brute(ref elements in vec(1i32..100, 1..10)) {
+        fn prop_snp_brute(ref elements in vec(1_i32..100, 1..10)) {
             let brute_results = brute_force(&elements, 4);
             let brute_score = brute_results[0].sum;
             let snp_results = snp(&elements, 4);
@@ -182,6 +182,7 @@ mod tests {
     }
     #[bench]
     fn bench_snp(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
         let elements = vec![
             403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
             8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
