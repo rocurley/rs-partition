@@ -68,51 +68,33 @@ fn expand_partitions<T: Arith>(
         consider_partitioning(current_best, partitions);
         return;
     }
-    let largest_sum = partitions
-        .iter()
-        .map(|partition| partition.sum)
-        .max()
-        .expect("partitions is empty");
-    if largest_sum * constants.n_partitions - constants.total
-        >= (*current_best).1 * (constants.n_partitions - one())
-    {
+    let largest_sum = score_partitioning(partitions);
+    if largest_sum >= (*current_best).1 {
         return;
     }
     let x = elements[0];
-    let (min_index, mut last_sum): (usize, T) = partitions
+    let mut ordered_indexed_partition_sums: Vec<(usize, T)> = partitions
         .iter()
         .map(|partition| partition.sum)
         .enumerate()
-        .min_by_key(|&(_, sum)| sum)
-        .expect("partitions is empty");
-    partitions[min_index].push(x);
-    expand_partitions(&elements[1..], partitions, current_best, constants);
-    partitions[min_index].pop();
-    while let Some((i, sum)) = partitions
-        .iter()
-        .map(|partition| partition.sum)
-        .filter(|&sum| sum > last_sum)
-        .enumerate()
-        .min_by_key(|&(_, sum)| sum)
-    {
-        last_sum = sum;
+        .collect();
+    ordered_indexed_partition_sums.sort_by_key(|&(_, sum)| sum);
+    for (i, _) in ordered_indexed_partition_sums {
         partitions[i].push(x);
         expand_partitions(&elements[1..], partitions, current_best, constants);
         partitions[i].pop();
+        if largest_sum == (*current_best).1 {
+            return;
+        }
     }
 }
 
 fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
-    let mut max_sum = partitions[0].sum;
-    let mut min_sum = max_sum;
-    for partition in partitions[1..].iter() {
-        if partition.sum > max_sum {
-            max_sum = partition.sum;
-        } else if partition.sum < min_sum {
-            min_sum = partition.sum;
-        }
-    }
-    max_sum - min_sum
+    partitions
+        .iter()
+        .map(|partition| partition.sum)
+        .max()
+        .expect("partitions is empty")
 }
 
 pub fn find_best_partitioning<T: Arith>(
