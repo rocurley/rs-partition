@@ -2,7 +2,7 @@ extern crate cpuprofiler;
 extern crate num;
 
 use super::arith::Arith;
-use num::{one, zero};
+use num::zero;
 use std::iter::Iterator;
 
 #[derive(Clone, Debug)]
@@ -60,11 +60,12 @@ struct Constants<T: Arith> {
 
 fn expand_partitions<T: Arith>(
     elements: &[T],
+    index: usize,
     partitions: &mut [Partition<T>],
     current_best: &mut (Vec<Partition<T>>, T),
     constants: Constants<T>,
 ) {
-    if elements.is_empty() {
+    if elements.len() <= index {
         consider_partitioning(current_best, partitions);
         return;
     }
@@ -72,7 +73,7 @@ fn expand_partitions<T: Arith>(
     if largest_sum >= (*current_best).1 {
         return;
     }
-    let x = elements[0];
+    let x = elements[index];
     let mut ordered_indexed_partition_sums: Vec<(usize, T)> = partitions
         .iter()
         .map(|partition| partition.sum)
@@ -81,7 +82,7 @@ fn expand_partitions<T: Arith>(
     ordered_indexed_partition_sums.sort_by_key(|&(_, sum)| sum);
     for (i, _) in ordered_indexed_partition_sums {
         partitions[i].push(x);
-        expand_partitions(&elements[1..], partitions, current_best, constants);
+        expand_partitions(&elements, index + 1, partitions, current_best, constants);
         partitions[i].pop();
         if largest_sum == (*current_best).1 {
             return;
@@ -118,6 +119,7 @@ pub fn find_best_partitioning<T: Arith>(
     };
     expand_partitions(
         elements,
+        0,
         partitions.as_mut_slice(),
         &mut scored_best_partitioning,
         constants,

@@ -53,8 +53,12 @@ pub fn split_mask<T: Arith>(mask: u64, elements: &[T]) -> (u64, u64) {
         }
     }
     let (smalls, larges) = element_masks.split_at(element_masks.len() / 2);
-    let small_mask = smalls.iter().fold(0, |acc, (_, element_mask)| acc | element_mask);
-    let large_mask = larges.iter().fold(0, |acc, (_, element_mask)| acc | element_mask);
+    let small_mask = smalls
+        .iter()
+        .fold(0, |acc, (_, element_mask)| acc | element_mask);
+    let large_mask = larges
+        .iter()
+        .fold(0, |acc, (_, element_mask)| acc | element_mask);
     (small_mask, large_mask)
 }
 
