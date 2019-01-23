@@ -23,6 +23,22 @@ impl<T: Arith> Subset<T, u64> {
         }
         Self { sum, mask }
     }
+    pub fn from_index(i: usize, elements: &[T]) -> Self {
+        let sum = elements[i];
+        let mask = 1 << i;
+        Self { sum, mask }
+    }
+    pub fn empty() -> Self {
+        Self {
+            sum: T::from(0),
+            mask: 0,
+        }
+    }
+    pub fn all(elements: &[T]) -> Self {
+        let mask = (1 << elements.len()) - 1;
+        let sum = elements.iter().cloned().sum();
+        Self { sum, mask }
+    }
     pub fn union(left: &Self, right: &Self) -> Self {
         Self {
             sum: left.sum + right.sum,

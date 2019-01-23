@@ -2,47 +2,13 @@ extern crate cpuprofiler;
 extern crate num;
 
 use super::arith::Arith;
-use num::zero;
 use std::iter::Iterator;
-
-#[derive(Clone, Debug)]
-pub struct Partition<T: Arith> {
-    sum: T,
-    length: usize,
-    elements: Box<[T]>,
-}
-
-impl<T: Arith> Partition<T> {
-    fn new(capacity: usize) -> Self {
-        Self {
-            sum: zero(),
-            length: 0,
-            elements: vec![zero(); capacity].into_boxed_slice(),
-        }
-    }
-    fn push(&mut self, x: T) {
-        self.sum += x;
-        self.elements[self.length] = x;
-        self.length += 1;
-    }
-    fn pop(&mut self) {
-        self.length -= 1;
-        self.sum -= self.elements[self.length];
-    }
-    pub fn print(&self) {
-        println!("{:?} : {:?}", self.sum, &self.elements[0..self.length]);
-    }
-    pub fn to_vec(&self) -> Vec<T> {
-        self.elements[0..self.length].to_vec()
-    }
-    pub fn sum(&self) -> T {
-        self.sum
-    }
-}
+use std::mem;
+use subset::Subset;
 
 fn consider_partitioning<T: Arith>(
-    current_best: &mut (Vec<Partition<T>>, T),
-    candidate: &[Partition<T>],
+    current_best: &mut (Vec<Subset<T, u64>>, T),
+    candidate: &[Subset<T, u64>],
 ) {
     let score = score_partitioning(candidate);
     let (ref mut current_partitioning, ref mut current_score) = current_best;
@@ -61,8 +27,8 @@ struct Constants<T: Arith> {
 fn expand_partitions<T: Arith>(
     elements: &[T],
     index: usize,
-    partitions: &mut [Partition<T>],
-    current_best: &mut (Vec<Partition<T>>, T),
+    partitions: &mut [Subset<T, u64>],
+    current_best: &mut (Vec<Subset<T, u64>>, T),
     constants: Constants<T>,
 ) {
     if elements.len() <= index {
@@ -73,7 +39,6 @@ fn expand_partitions<T: Arith>(
     if largest_sum >= (*current_best).1 {
         return;
     }
-    let x = elements[index];
     let mut ordered_indexed_partition_sums: Vec<(usize, T)> = partitions
         .iter()
         .map(|partition| partition.sum)
@@ -81,16 +46,17 @@ fn expand_partitions<T: Arith>(
         .collect();
     ordered_indexed_partition_sums.sort_by_key(|&(_, sum)| sum);
     for (i, _) in ordered_indexed_partition_sums {
-        partitions[i].push(x);
+        let mut saved_subset = Subset::union(&partitions[i], &Subset::from_index(index, elements));
+        mem::swap(&mut saved_subset, &mut partitions[i]);
         expand_partitions(&elements, index + 1, partitions, current_best, constants);
-        partitions[i].pop();
+        partitions[i] = saved_subset;
         if largest_sum == (*current_best).1 {
             return;
         }
     }
 }
 
-fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
+fn score_partitioning<T: Arith>(partitions: &[Subset<T, u64>]) -> T {
     partitions
         .iter()
         .map(|partition| partition.sum)
@@ -101,16 +67,10 @@ fn score_partitioning<T: Arith>(partitions: &[Partition<T>]) -> T {
 pub fn find_best_partitioning<T: Arith>(
     n_partitions: u8,
     elements: &[T],
-) -> (Vec<Partition<T>>, T) {
-    let mut partitions: Vec<Partition<T>> = (0..n_partitions)
-        .map(|_| Partition::new(elements.len()))
-        .collect();
-    let mut best_partitioning: Vec<Partition<T>> = (0..n_partitions)
-        .map(|_| Partition::new(elements.len()))
-        .collect();
-    for el in elements.iter() {
-        best_partitioning[0].push(el.clone());
-    }
+) -> (Vec<Subset<T, u64>>, T) {
+    let mut partitions: Vec<Subset<T, u64>> = vec![Subset::empty(); n_partitions as usize];
+    let mut best_partitioning = partitions.clone();
+    best_partitioning[0] = Subset::all(elements);
     let score = score_partitioning(&best_partitioning);
     let mut scored_best_partitioning = (best_partitioning, score);
     let constants = Constants {
@@ -125,4 +85,22 @@ pub fn find_best_partitioning<T: Arith>(
         constants,
     );
     scored_best_partitioning
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate test;
+    use self::test::Bencher;
+    use gcc::find_best_partitioning;
+    #[bench]
+    fn bench_gcc(b: &mut Bencher) {
+        #[allow(clippy::unreadable_literal)]
+        let elements = vec![
+            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
+            //8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
+            //2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
+            537584, 537584, 537584,
+        ];
+        b.iter(|| find_best_partitioning(4, &elements));
+    }
 }

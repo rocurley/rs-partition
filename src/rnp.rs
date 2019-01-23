@@ -1,5 +1,5 @@
 use arith::Arith;
-use ckk::{KKPartition, ckk, n_kk};
+use ckk::{ckk, n_kk, KKPartition};
 use std::collections::BinaryHeap;
 
 #[derive(Debug)]
@@ -90,7 +90,7 @@ mod tests {
         #[test]
         fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
             let (gcc_results, _) = find_best_partitioning(4, &elements);
-            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum()).collect();
+            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum).collect();
             let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
             let rnp_results = rnp(&elements);
             let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.iter().sum()).collect();
@@ -123,4 +123,3 @@ mod tests {
         b.iter(|| rnp(&elements));
     }
 }
-
