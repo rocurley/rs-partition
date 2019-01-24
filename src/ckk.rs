@@ -1,5 +1,6 @@
 use super::arith::Arith;
 use super::subset::Subset;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -8,64 +9,63 @@ use std::mem::swap;
 
 #[derive(Eq, Debug, Clone)]
 pub struct KKPartition<T: Arith> {
-    pub left: Vec<T>,
-    pub right: Vec<T>,
-    pub score: T,
+    pub left: Subset<T, u64>,
+    pub right: Subset<T, u64>,
 }
 
 impl<T: Arith> PartialEq for KKPartition<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.score == other.score
+        self.delta() == other.delta()
     }
 }
 impl<T: Arith> PartialOrd for KKPartition<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.score.cmp(&other.score))
+        Some(self.delta().cmp(&other.delta()))
     }
 }
 impl<T: Arith> Ord for KKPartition<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.score.cmp(&other.score)
+        self.delta().cmp(&other.delta())
     }
 }
 
 impl<T: Arith> KKPartition<T> {
-    pub fn merge(&mut self, mut other: Self) {
-        self.left.append(&mut other.right);
-        self.right.append(&mut other.left);
-        self.score -= other.score;
+    pub fn delta(&self) -> T {
+        self.left.sum - self.right.sum
     }
-    pub fn merge_rev(&mut self, mut other: Self) {
-        self.left.append(&mut other.left);
-        self.right.append(&mut other.right);
-        self.score += other.score;
+    pub fn merge(big: &Self, small: &Self) -> Self {
+        let left = Subset::union(&big.left, &small.right);
+        let right = Subset::union(&big.right, &small.left);
+        KKPartition { left, right }
+    }
+    pub fn merge_rev(big: &Self, small: &Self) -> Self {
+        let left = Subset::union(&big.left, &small.left);
+        let right = Subset::union(&big.right, &small.right);
+        KKPartition { left, right }
     }
 
-    pub fn singleton(x: T) -> Self {
+    pub fn singleton(index: usize, elements: &[T]) -> Self {
         Self {
-            left: vec![x],
-            right: Vec::new(),
-            score: x,
+            left: Subset::from_index(index, elements),
+            right: Subset::empty(),
         }
     }
-    pub fn new_score(&self) -> T {
-        self.left.iter().fold(T::from(0), |acc, &x| acc + x)
+    pub fn score(&self) -> T {
+        self.left.sum
     }
 }
 
 pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
-    let mut heap: BinaryHeap<KKPartition<T>> = elements
-        .iter()
-        .map(|&x| KKPartition::singleton(x))
+    let mut heap: BinaryHeap<KKPartition<T>> = (0..elements.len())
+        .map(|i| KKPartition::singleton(i, elements))
         .collect();
     loop {
         match (heap.pop(), heap.pop()) {
             (None, None) => panic!("heap is empty"),
             (None, Some(_)) => panic!("first empty, snd not"),
             (Some(first), None) => return first,
-            (Some(mut first), Some(snd)) => {
-                first.merge(snd);
-                heap.push(first);
+            (Some(first), Some(snd)) => {
+                heap.push(KKPartition::merge(&first, &snd));
             }
         }
     }
@@ -78,28 +78,25 @@ enum Direction {
 }
 
 fn reconstruct_ckk<T: Arith>(elements: &[T], directions: Vec<Direction>) -> KKPartition<T> {
-    let mut heap: BinaryHeap<KKPartition<T>> = elements
-        .iter()
-        .map(|&x| KKPartition::singleton(x))
+    let mut heap: BinaryHeap<KKPartition<T>> = (0..elements.len())
+        .map(|i| KKPartition::singleton(i, elements))
         .collect();
     for direction in directions {
-        let mut first = heap.pop().expect("heap is empty");
+        let first = heap.pop().expect("heap is empty");
         match heap.pop() {
             None => return first,
             Some(snd) => {
-                match direction {
-                    Direction::Diff => first.merge(snd),
-                    Direction::Sum => first.merge_rev(snd),
-                }
-                heap.push(first);
+                let merged = match direction {
+                    Direction::Diff => KKPartition::merge(&first, &snd),
+                    Direction::Sum => KKPartition::merge_rev(&first, &snd),
+                };
+                heap.push(merged);
             }
         }
     }
-    let mut first = heap.pop().expect("heap is empty");
-    for p in heap {
-        first.merge(p);
-    }
-    first
+    heap.into_iter()
+        .fold1(|acc, next| KKPartition::merge(&acc, &next))
+        .expect("heap is empty")
 }
 
 pub fn old<T: Arith>(elements: &[T]) -> KKPartition<T> {
@@ -154,6 +151,22 @@ pub fn ckk<T: Arith>(elements: &[T]) -> KKPartition<T> {
     let mut best = elements.iter().cloned().sum();
     let mut work_elements = elements.to_vec();
     let sum = elements.iter().cloned().sum();
+    ckk_raw(
+        &mut work_elements,
+        sum,
+        &mut directions,
+        &mut best,
+        &mut best_directions,
+    );
+    reconstruct_ckk(elements, best_directions)
+}
+
+pub fn from_subset<T: Arith>(subset: &Subset<T, u64>, elements: &[T]) -> KKPartition<T> {
+    let mut best_directions = Vec::with_capacity(elements.len());
+    let mut directions = Vec::with_capacity(elements.len());
+    let mut best = elements.iter().cloned().sum();
+    let mut work_elements: Vec<T> = subset.elements(elements).collect();
+    let sum = subset.sum;
     ckk_raw(
         &mut work_elements,
         sum,
@@ -283,13 +296,7 @@ impl<T: Arith> Partitioning<T> {
         self.partitions.sort_unstable_by_key(|x| Reverse(x.sum));
     }
     fn singleton(mask: u64, elements: &[T], n: usize) -> Self {
-        let mut partitions = vec![
-            Subset {
-                sum: T::from(0),
-                mask: 0
-            };
-            n
-        ];
+        let mut partitions = vec![Subset::empty(); n];
         partitions[0] = Subset::new(mask, elements);
         Self { partitions }
     }
@@ -315,7 +322,7 @@ pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
 mod tests {
     extern crate test;
     use self::test::Bencher;
-    use ckk::{ckk, old, ckk_raw, old_raw, kk, n_kk};
+    use ckk::{ckk, ckk_raw, kk, n_kk, old, old_raw};
     use proptest::collection::vec;
     proptest! {
         #[test]
@@ -346,12 +353,12 @@ mod tests {
     fn unit_ckk() {
         let elements = vec![2, 3, 4, 5];
         let partition = ckk(&elements);
-        assert_eq!(partition.score, 0);
+        assert_eq!(partition.score(), 7, "partiton was {:?}", partition);
     }
     proptest! {
         #[test]
         fn prop_n_kk(ref elements in vec(1_i32..100, 1..10)) {
-            let partition_1 = kk(elements).score;
+            let partition_1 = kk(elements).score();
             let partition_2 = n_kk(elements,2).score();
             assert_eq!(partition_1, partition_2);
        }

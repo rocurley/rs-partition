@@ -46,6 +46,17 @@ impl<T: Arith> Subset<T, u64> {
         }
     }
 }
+impl<'a, T: Arith> Subset<T, u64> {
+    pub fn elements(&'a self, elements: &'a [T]) -> impl Iterator<Item = T> + 'a {
+        elements.iter().enumerate().filter_map(move |(i, x)| {
+            if ((1 << i) & self.mask) > 0 {
+                Some(*x)
+            } else {
+                None
+            }
+        })
+    }
+}
 
 pub fn all_subsets<T: Arith>(elements: &[T]) -> Option<(Vec<Subset<T, u64>>)> {
     if elements.len() > 63 {

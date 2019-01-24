@@ -153,7 +153,7 @@ mod tests {
         #[test]
         fn prop_snp_ckk(ref elements in vec(1_i32..100, 1..10)) {
             let ckk_results = ckk(&elements);
-            let ckk_score = ckk_results.new_score();
+            let ckk_score = ckk_results.score();
             let snp_results = snp(&elements, 2);
             let snp_score = snp_results[0].sum;
             assert_eq!(snp_score, ckk_score, "SNP got {:?}, CKK got {:?}", snp_results, ckk_results);

@@ -1,25 +1,26 @@
 use arith::Arith;
-use ckk::{ckk, n_kk, KKPartition};
+use ckk::{from_subset, n_kk, KKPartition};
 use std::collections::BinaryHeap;
+use subset::Subset;
 
 #[derive(Debug)]
 pub enum RNPResult<T: Arith> {
     TwoWay(KKPartition<T>),
     EvenSplit(Box<RNPResult<T>>, Box<RNPResult<T>>),
-    OddSplit(Vec<T>, Box<RNPResult<T>>),
+    OddSplit(Subset<T, u64>, Box<RNPResult<T>>),
 }
 impl<T: Arith> RNPResult<T> {
-    pub fn to_vec(&self) -> Vec<&[T]> {
+    pub fn to_vec(&self) -> Vec<Subset<T, u64>> {
         match self {
-            RNPResult::TwoWay(kk) => vec![&kk.left, &kk.right],
+            RNPResult::TwoWay(kk) => vec![kk.left.clone(), kk.right.clone()],
             RNPResult::EvenSplit(l, r) => {
                 let mut v = l.to_vec();
                 v.append(&mut r.to_vec());
                 v
             }
             RNPResult::OddSplit(first, rest) => {
-                let mut v = vec![first.as_slice()];
-                v.append(&mut rest.to_vec());
+                let mut v = rest.to_vec();
+                v.push(first.clone());
                 v
             }
         }
@@ -31,13 +32,15 @@ pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
     let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
         .iter()
-        .map(|&x| KKPartition::singleton(x))
+        .enumerate()
+        .map(|(i, _)| KKPartition::singleton(i, elements))
         .collect();
-    rnp_helper(heap, &mut upper_bound, &mut best);
+    rnp_helper(elements, heap, &mut upper_bound, &mut best);
     best.expect("KK heursitic was optimal, which isn't properly handled yet :(")
 }
 
 fn rnp_helper<T: Arith>(
+    elements: &[T],
     mut heap: BinaryHeap<KKPartition<T>>,
     upper_bound: &mut T,
     best: &mut Option<RNPResult<T>>,
@@ -45,11 +48,11 @@ fn rnp_helper<T: Arith>(
     let mut first = heap.pop().expect("heap is empty");
     match heap.pop() {
         None => {
-            if first.score / 2.into() < *upper_bound {
-                let left = ckk(&first.left);
-                if (left.score + first.score) / 2.into() < *upper_bound {
-                    let right = ckk(&first.right);
-                    let score = (first.score + right.score + left.score) / 2.into();
+            if first.score() / 2.into() < *upper_bound {
+                let left = from_subset(&first.left, elements);
+                if (left.score() + first.score()) / 2.into() < *upper_bound {
+                    let right = from_subset(&first.right, elements);
+                    let score = (first.score() + right.score() + left.score()) / 2.into();
                     if score < *upper_bound {
                         *upper_bound = score;
                         *best = Some(RNPResult::EvenSplit(
@@ -61,20 +64,21 @@ fn rnp_helper<T: Arith>(
             }
         }
         Some(snd) => {
-            let rest_score = snd.score + heap.iter().map(|p| p.score).sum();
-            if (first.score > rest_score) && ((first.score - rest_score) / 2.into() > *upper_bound)
+            let rest_score = snd.score() + heap.iter().map(|p| p.score()).sum();
+            if (first.score() > rest_score)
+                && ((first.score() - rest_score) / 2.into() > *upper_bound)
             {
                 return;
             }
             let mut new_heap = heap.clone();
             let mut new_first = first.clone();
             let new_snd = snd.clone();
-            new_first.merge(new_snd);
+            new_first = KKPartition::merge(&new_first, &new_snd);
             new_heap.push(new_first);
-            rnp_helper(new_heap, upper_bound, best);
-            first.merge_rev(snd);
+            rnp_helper(elements, new_heap, upper_bound, best);
+            first = KKPartition::merge_rev(&first, &snd);
             heap.push(first);
-            rnp_helper(heap, upper_bound, best);
+            rnp_helper(elements, heap, upper_bound, best);
         }
     }
 }
@@ -93,7 +97,7 @@ mod tests {
             let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum).collect();
             let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
             let rnp_results = rnp(&elements);
-            let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.iter().sum()).collect();
+            let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.sum).collect();
             let rnp_score = rnp_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
             /*
             let mut gcc_sorted : Vec<Vec<i32>> = gcc_results.iter_mut().map(|p| {
