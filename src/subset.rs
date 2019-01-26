@@ -45,6 +45,17 @@ impl<T: Arith> Subset<T, u64> {
             mask: left.mask | right.mask,
         }
     }
+    pub fn to_vec(&self, elements: &[T]) -> Vec<T> {
+        let mut selected_bit = 1;
+        let mut vec = Vec::new();
+        for x in elements {
+            if self.mask & selected_bit > 0 {
+                vec.push(*x);
+            }
+            selected_bit <<= 1;
+        }
+        vec
+    }
 }
 impl<'a, T: Arith> Subset<T, u64> {
     pub fn elements(&'a self, elements: &'a [T]) -> impl Iterator<Item = T> + 'a {
