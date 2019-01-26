@@ -1,6 +1,7 @@
 extern crate cpuprofiler;
 extern crate num;
 extern crate partition_lib;
+extern crate serde_json;
 
 use self::cpuprofiler::PROFILER;
 use num::Integer;
@@ -21,18 +22,8 @@ impl<T> Arith for T where
 fn main() {
     let string_args: Vec<String> = args().collect();
     let n_partitions: u8 = string_args[1].parse().expect("Couldn't parse argument");
-    /*
-    if n_partitions != 4 {
-        panic!("Current rnp implementation only works with 4 partitons")
-    }
-    */
-    let mut input = String::new();
-    stdin()
-        .read_line(&mut input)
-        .expect("Couldn't read from stdin");
-    let elements_result: Result<Vec<i32>, std::num::ParseIntError> =
-        input.trim().split(',').map(|i| i.parse()).collect();
-    let elements: Vec<i32> = elements_result.expect("Couldn't parse input");
+    let elements_result: serde_json::Result<Vec<i32>> = serde_json::from_reader(stdin());
+    let elements = elements_result.expect("Couldn't parse input");
     PROFILER.lock().unwrap().start("main.profile").unwrap();
     let partitions = snp::snp(&elements, n_partitions);
     PROFILER.lock().unwrap().stop().unwrap();
