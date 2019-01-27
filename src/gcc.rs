@@ -101,6 +101,6 @@ mod tests {
             //2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
             537584, 537584, 537584,
         ];
-        b.iter(|| find_best_partitioning(4, &elements));
+        b.iter(|| find_best_partitioning(&elements, 4));
     }
 }

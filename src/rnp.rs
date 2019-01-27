@@ -31,7 +31,7 @@ impl<T: Arith> RNPResult<T> {
 
 pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
     let kk_result = n_kk(elements, 4);
-    let mut upper_bound = kk_result.score();
+    let mut upper_bound = kk_result.delta();
     let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
         .iter()
@@ -96,7 +96,7 @@ mod tests {
     proptest! {
         #[test]
         fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
-            let (gcc_results, _) = find_best_partitioning(4, &elements);
+            let (gcc_results, _) = find_best_partitioning( &elements, 4);
             let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum).collect();
             let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
             let rnp_results = rnp(&elements);

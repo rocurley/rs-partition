@@ -264,22 +264,25 @@ pub struct Partitioning<T: Arith> {
 
 impl<T: Arith> PartialEq for Partitioning<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.score() == other.score()
+        self.delta() == other.delta()
     }
 }
 impl<T: Arith> PartialOrd for Partitioning<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.score().cmp(&other.score()))
+        Some(self.delta().cmp(&other.delta()))
     }
 }
 impl<T: Arith> Ord for Partitioning<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.score().cmp(&other.score())
+        self.delta().cmp(&other.delta())
     }
 }
 
 impl<T: Arith> Partitioning<T> {
     pub fn score(&self) -> T {
+        self.partitions[0].sum
+    }
+    pub fn delta(&self) -> T {
         let max = self.partitions[0].sum;
         let min = self.partitions.last().unwrap().sum;
         max - min

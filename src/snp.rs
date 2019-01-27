@@ -142,7 +142,7 @@ mod tests {
     proptest! {
         #[test]
         fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..10), n in (2_u8..5)) {
-            let (gcc_results, _) = find_best_partitioning(n, &elements);
+            let (gcc_results, _) = find_best_partitioning( &elements, n);
             let gcc_score = gcc_results.iter().map(|p| p.sum).max().unwrap();
             let snp_results = snp(&elements, n);
             let snp_score = snp_results[0].sum;
