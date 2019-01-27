@@ -2,7 +2,6 @@ extern crate cpuprofiler;
 extern crate num;
 extern crate partition_lib;
 extern crate serde_json;
-#[macro_use]
 extern crate structopt;
 
 use self::cpuprofiler::PROFILER;

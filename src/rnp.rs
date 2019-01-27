@@ -8,6 +8,7 @@ pub enum RNPResult<T: Arith> {
     TwoWay(KKPartition<T>),
     EvenSplit(Box<RNPResult<T>>, Box<RNPResult<T>>),
     OddSplit(Subset<T, u64>, Box<RNPResult<T>>),
+    KKResult(Vec<Subset<T, u64>>),
 }
 impl<T: Arith> RNPResult<T> {
     pub fn to_vec(&self) -> Vec<Subset<T, u64>> {
@@ -23,12 +24,14 @@ impl<T: Arith> RNPResult<T> {
                 v.push(first.clone());
                 v
             }
+            RNPResult::KKResult(v) => v.clone(),
         }
     }
 }
 
 pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
-    let mut upper_bound = n_kk(elements, 4).score();
+    let kk_result = n_kk(elements, 4);
+    let mut upper_bound = kk_result.score();
     let mut best = None;
     let heap: BinaryHeap<KKPartition<T>> = elements
         .iter()
@@ -36,7 +39,7 @@ pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
         .map(|(i, _)| KKPartition::singleton(i, elements))
         .collect();
     rnp_helper(elements, heap, &mut upper_bound, &mut best);
-    best.expect("KK heursitic was optimal, which isn't properly handled yet :(")
+    best.unwrap_or_else(|| RNPResult::KKResult(kk_result.partitions))
 }
 
 fn rnp_helper<T: Arith>(
