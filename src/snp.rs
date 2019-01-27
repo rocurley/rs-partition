@@ -53,7 +53,7 @@ pub fn brute_force<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
 
 pub fn snp<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
     let base_mask = (1 << elements.len()) - 1;
-    let mut best_partitioning = n_kk(elements, n as usize).partitions;
+    let mut best_partitioning = n_kk(elements, n).partitions;
     let mut ub = best_partitioning[0].sum;
     let total = best_partitioning.iter().map(|subset| subset.sum).sum();
     let range = partition_range(ub, total, n);

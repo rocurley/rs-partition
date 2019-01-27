@@ -294,14 +294,14 @@ impl<T: Arith> Partitioning<T> {
         }
         self.partitions.sort_unstable_by_key(|x| Reverse(x.sum));
     }
-    fn singleton(mask: u64, elements: &[T], n: usize) -> Self {
-        let mut partitions = vec![Subset::empty(); n];
+    fn singleton(mask: u64, elements: &[T], n: u8) -> Self {
+        let mut partitions = vec![Subset::empty(); n as usize];
         partitions[0] = Subset::new(mask, elements);
         Self { partitions }
     }
 }
 
-pub fn n_kk<T: Arith>(elements: &[T], n: usize) -> Partitioning<T> {
+pub fn n_kk<T: Arith>(elements: &[T], n: u8) -> Partitioning<T> {
     let mut heap: BinaryHeap<Partitioning<T>> = (0..elements.len())
         .map(|i| Partitioning::singleton(1 << i, elements, n))
         .collect();

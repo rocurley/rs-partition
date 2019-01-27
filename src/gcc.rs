@@ -65,8 +65,8 @@ fn score_partitioning<T: Arith>(partitions: &[Subset<T, u64>]) -> T {
 }
 
 pub fn find_best_partitioning<T: Arith>(
-    n_partitions: u8,
     elements: &[T],
+    n_partitions: u8,
 ) -> (Vec<Subset<T, u64>>, T) {
     let mut partitions: Vec<Subset<T, u64>> = vec![Subset::empty(); n_partitions as usize];
     let mut best_partitioning = partitions.clone();
