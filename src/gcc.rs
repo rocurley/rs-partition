@@ -91,16 +91,10 @@ pub fn find_best_partitioning<T: Arith>(
 mod tests {
     extern crate test;
     use self::test::Bencher;
+    use benchmark_data;
     use gcc::find_best_partitioning;
     #[bench]
     fn bench_gcc(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            //8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            //2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| find_best_partitioning(&elements, 4));
+        b.iter(|| find_best_partitioning(&benchmark_data::SMALL_ELEMENTS, 4));
     }
 }

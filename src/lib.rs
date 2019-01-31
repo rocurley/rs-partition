@@ -14,6 +14,8 @@ extern crate num;
 extern crate proptest;
 extern crate itertools;
 mod arith;
+#[cfg(test)]
+mod benchmark_data;
 pub mod ckk;
 pub mod ess;
 pub mod gcc;

@@ -324,6 +324,7 @@ pub fn n_kk<T: Arith>(elements: &[T], n: u8) -> Partitioning<T> {
 mod tests {
     extern crate test;
     use self::test::Bencher;
+    use benchmark_data;
     use ckk::{ckk, ckk_raw, kk, n_kk, old, old_raw};
     use proptest::collection::vec;
     proptest! {
@@ -367,24 +368,10 @@ mod tests {
     }
     #[bench]
     fn bench_ckk(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| old(&elements));
+        b.iter(|| old(&benchmark_data::SMALL_ELEMENTS));
     }
     #[bench]
     fn bench_ckk_2(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            2057084, 2057084, 2057084, 9599726, 9599726, 9599726, 9599726, 9599726, 9599726,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| ckk(&elements));
+        b.iter(|| ckk(&benchmark_data::SMALL_ELEMENTS));
     }
 }

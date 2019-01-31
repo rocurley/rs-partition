@@ -90,6 +90,7 @@ fn rnp_helper<T: Arith>(
 mod tests {
     extern crate test;
     use self::test::Bencher;
+    use benchmark_data;
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
     use rnp::rnp;
@@ -121,12 +122,6 @@ mod tests {
     }
     #[bench]
     fn bench_rnp(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            537584, 537584, 537584,
-        ];
-        b.iter(|| rnp(&elements));
+        b.iter(|| rnp(&benchmark_data::MEDIUM_ELEMENTS));
     }
 }

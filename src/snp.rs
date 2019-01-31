@@ -132,8 +132,8 @@ impl<'a, T: Arith> SNP<'a, T> {
 mod tests {
     extern crate cpuprofiler;
     extern crate test;
-    use self::cpuprofiler::PROFILER;
     use self::test::Bencher;
+    use benchmark_data;
     use ckk::ckk;
     use gcc::find_best_partitioning;
     use proptest::collection::vec;
@@ -181,14 +181,6 @@ mod tests {
     }
     #[bench]
     fn bench_snp(b: &mut Bencher) {
-        #[allow(clippy::unreadable_literal)]
-        let elements = vec![
-            403188, 4114168, 4114168, 5759835, 5759835, 5759835, 2879917, 8228336, 8228336,
-            8228336, 8228336, 8228336, 8228336, 8228336, 2057084, 2057084, 2057084, 2057084,
-            537584, 537584, 537584,
-        ];
-        PROFILER.lock().unwrap().start("snp.profile").unwrap();
-        b.iter(|| snp(&elements, 4));
-        PROFILER.lock().unwrap().stop().unwrap();
+        b.iter(|| snp(&benchmark_data::MEDIUM_ELEMENTS, 4));
     }
 }
