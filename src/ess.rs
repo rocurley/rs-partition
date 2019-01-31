@@ -112,6 +112,37 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
     }
 }
 
+pub struct BiasedESS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> {
+    ess: ESS<T, I1, I2>,
+    first: Subset<T, u64>,
+}
+impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>> Iterator
+    for BiasedESS<T, I1, I2> where
+{
+    type Item = Subset<T, u64>;
+    fn next(&mut self) -> Option<Subset<T, u64>> {
+        self.ess
+            .next()
+            .map(|next| Subset::union(&self.first, &next))
+    }
+}
+
+pub fn biased_iterate_subsets_in_range<T: Arith>(
+    mask: u64,
+    elements: &[T],
+    range: Range<T>,
+) -> BiasedESS<
+    T,
+    impl Iterator<Item = Subset<T, u64>> + Debug,
+    impl Iterator<Item = Subset<T, u64>> + Debug,
+> {
+    let rest_mask = mask & (mask - 1);
+    let first_mask = mask & !rest_mask;
+    let first = Subset::new(first_mask, elements);
+    let shifted_range = (range.start - first.sum)..(range.end - first.sum);
+    let ess = iterate_subsets_in_range(rest_mask, elements, shifted_range);
+    BiasedESS { first, ess }
+}
 #[cfg(test)]
 mod tests {
     use arith::Arith;
@@ -152,8 +183,7 @@ mod tests {
     fn unit_submasks() {
         let mask = 0b_10101_u64;
         let mut expected = vec![
-            0b_00000, 0b_00001, 0b_00100, 0b_00101, 0b_10000, 0b_10001, 0b_10100,
-            0b_10101,
+            0b_00000, 0b_00001, 0b_00100, 0b_00101, 0b_10000, 0b_10001, 0b_10100, 0b_10101,
         ];
         expected.reverse();
         let submasks_iterator = submasks(mask);
