@@ -1,5 +1,6 @@
 use super::arith::Arith;
 use super::subset::{ordered_subsets, split_mask, Down, OrderedSubsets, Subset, Up};
+use std::cmp;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::iter::Peekable;
@@ -48,6 +49,9 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
 {
     type Item = Subset<T, u64>;
     fn next(&mut self) -> Option<Subset<T, u64>> {
+        if self.range.is_empty() {
+            return None;
+        }
         let descending = self.descending.peek()?;
         let ascending = match self.ascending.get(self.ascending_index) {
             Some(ascending) => ascending,
@@ -126,6 +130,27 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
             .map(|next| Subset::union(&self.first, &next))
     }
 }
+impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
+    BiasedESS<T, I1, I2> where
+{
+    //TODO: move this into ESS
+    pub fn restrict_range(&mut self, range: Range<T>) -> Option<()> {
+        let shifted_range =
+            cmp::max(0.into(), range.start - self.first.sum)..(range.end - self.first.sum);
+        if shifted_range.is_empty() {
+            self.ess.range = shifted_range;
+            return Some(());
+        }
+        if shifted_range.start < self.ess.range.start {
+            return None;
+        }
+        if shifted_range.end > self.ess.range.end {
+            return None;
+        }
+        self.ess.range = shifted_range;
+        Some(())
+    }
+}
 
 pub fn biased_iterate_subsets_in_range<T: Arith>(
     mask: u64,
@@ -137,9 +162,9 @@ pub fn biased_iterate_subsets_in_range<T: Arith>(
     impl Iterator<Item = Subset<T, u64>> + Debug,
 > {
     let rest_mask = mask & (mask - 1);
-    let first_mask = mask & !rest_mask;
+    let first_mask = mask ^ rest_mask;
     let first = Subset::new(first_mask, elements);
-    let shifted_range = (range.start - first.sum)..(range.end - first.sum);
+    let shifted_range = cmp::max(0.into(), range.start - first.sum)..(range.end - first.sum);
     let ess = iterate_subsets_in_range(rest_mask, elements, shifted_range);
     BiasedESS { first, ess }
 }

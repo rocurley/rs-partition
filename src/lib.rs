@@ -1,6 +1,7 @@
 #![feature(nll)]
 #![feature(test)]
 #![feature(range_contains)]
+#![feature(range_is_empty)]
 #![allow(unknown_lints)]
 #![warn(
     clippy::all,
