@@ -106,7 +106,7 @@ mod tests {
     use subset::Subset;
     proptest! {
         #[test]
-        fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..10), n in (2_u8..5)) {
+        fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..13), n in (2_u8..5)) {
             compare_partitionings(PartitionMethod::GCC, PartitionMethod::SNP, &elements, n);
        }
     }

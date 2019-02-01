@@ -93,8 +93,16 @@ mod tests {
     use self::test::Bencher;
     use benchmark_data;
     use gcc::find_best_partitioning;
+    use proptest::collection::vec;
+    use select::{compare_partitionings, PartitionMethod};
     #[bench]
     fn bench_gcc(b: &mut Bencher) {
         b.iter(|| find_best_partitioning(&benchmark_data::SMALL_ELEMENTS, 4));
+    }
+    proptest! {
+        #[test]
+        fn prop_gcc_brute(ref elements in vec(1_i32..1000, 1..10)) {
+            compare_partitionings(PartitionMethod::Brute, PartitionMethod::GCC, &elements, 4);
+       }
     }
 }
