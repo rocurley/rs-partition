@@ -47,7 +47,6 @@ struct SNP<'a, T> {
 impl<'a, T: Arith> SNP<'a, T> {
     fn snp_helper(&'a mut self) -> Option<T> {
         let range = partition_range(self.ub, self.total_remaining, self.n);
-        println!("Called snp helper on:\n{:?}\nrange:{:?}", self, range);
         if self.n == 1 {
             let last_subset = Subset::new(self.mask, self.elements);
             assert!(range.contains(&last_subset.sum));
