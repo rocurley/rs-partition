@@ -14,12 +14,16 @@ extern crate num;
 #[macro_use]
 extern crate proptest;
 extern crate itertools;
+extern crate structopt;
+
 mod arith;
 #[cfg(test)]
 mod benchmark_data;
+mod brute;
 pub mod ckk;
 pub mod ess;
 pub mod gcc;
 pub mod rnp;
+pub mod select;
 pub mod snp;
 pub mod subset;

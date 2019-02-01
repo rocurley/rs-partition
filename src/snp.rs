@@ -2,55 +2,8 @@ use arith::Arith;
 use ckk::n_kk;
 use ess::biased_iterate_subsets_in_range;
 use std::cmp;
-use std::iter::{empty, once};
 use std::ops::Range;
-use subset::{submasks, Subset};
-
-fn all_partitions<'a, T: Arith>(
-    mask: u64,
-    elements: &'a [T],
-    n: u8,
-    max: T,
-) -> Box<Iterator<Item = Vec<Subset<T, u64>>> + 'a> {
-    if n == 1 {
-        let subset = Subset::new(mask, elements);
-        if subset.sum <= max {
-            Box::new(once(vec![subset]))
-        } else {
-            Box::new(empty())
-        }
-    } else {
-        Box::new(
-            submasks(mask)
-                .filter_map(move |submask| {
-                    let subset = Subset::new(submask, elements);
-                    if subset.sum <= max {
-                        Some(subset)
-                    } else {
-                        None
-                    }
-                })
-                .flat_map(move |subset| {
-                    all_partitions(mask ^ subset.mask, elements, n - 1, subset.sum).map(
-                        move |mut rest| {
-                            rest.push(subset.clone());
-                            rest
-                        },
-                    )
-                }),
-        )
-    }
-}
-
-pub fn brute_force<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
-    let mask = (1 << elements.len()) - 1;
-    let total = elements.iter().fold(T::from(0), |acc, &x| acc + x);
-    let mut out = all_partitions(mask, elements, n, total)
-        .min_by_key(|partitioning| Some(partitioning.last()?.sum))
-        .unwrap();
-    out.reverse();
-    out
-}
+use subset::Subset;
 
 pub fn snp<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
     let mask = (1 << elements.len()) - 1;
@@ -146,72 +99,33 @@ mod tests {
     extern crate cpuprofiler;
     extern crate test;
     use self::test::Bencher;
-    use arith::Arith;
     use benchmark_data;
-    use ckk::ckk;
-    use gcc::find_best_partitioning;
     use proptest::collection::vec;
-    use snp::{brute_force, snp};
+    use select::{compare_partitionings, PartitionMethod};
+    use snp::snp;
     use subset::Subset;
     proptest! {
         #[test]
         fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..10), n in (2_u8..5)) {
-            let (gcc_results, _) = find_best_partitioning( &elements, n);
-            let gcc_score = gcc_results.iter().map(|p| p.sum).max().unwrap();
-            let snp_results = snp(&elements, n);
-            let snp_score = snp_results[0].sum;
-            assert_eq!(snp_score, gcc_score, "SNP got {:?}, GCC got {:?}", snp_results, gcc_results);
+            compare_partitionings(PartitionMethod::GCC, PartitionMethod::SNP, &elements, n);
        }
     }
     proptest! {
         #[test]
         fn prop_snp_ckk(ref elements in vec(1_i32..100, 1..10)) {
-            let ckk_results = ckk(&elements);
-            let ckk_score = ckk_results.score();
-            let snp_results = snp(&elements, 2);
-            let snp_score = snp_results[0].sum;
-            assert_eq!(snp_score, ckk_score, "SNP got {:?}, CKK got {:?}", snp_results, ckk_results);
+            compare_partitionings(PartitionMethod::CKK, PartitionMethod::SNP, &elements, 2);
        }
-    }
-    fn pretty_partitioning<T: Arith>(
-        partitions: &[Subset<T, u64>],
-        elements: &[T],
-    ) -> Vec<(T, Vec<T>)> {
-        partitions
-            .iter()
-            .map(|subset| (subset.sum, subset.to_vec(elements)))
-            .collect()
-    }
-    fn compare_snp_brute(elements: &[i32], n: u8) {
-        let brute_results = brute_force(&elements, n);
-        let brute_score = brute_results[0].sum;
-        let snp_results = snp(&elements, n);
-        let snp_score = snp_results.iter().map(|subset| subset.sum).max().unwrap();
-        assert_eq!(
-            snp_results.len(),
-            n as usize,
-            "SNP had wrong number of elements. Expected length was {}, got {:?}",
-            n,
-            pretty_partitioning(&snp_results, elements),
-        );
-        assert_eq!(
-            snp_score,
-            brute_score,
-            "SNP got {:?}, brute force got {:?}",
-            pretty_partitioning(&snp_results, elements),
-            pretty_partitioning(&brute_results, elements)
-        );
     }
     proptest! {
         #[test]
         fn prop_snp_brute_simple(ref elements in vec(1_i32..6, 1..6)) {
-            compare_snp_brute(elements, 2)
+            compare_partitionings(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 2);
        }
     }
     proptest! {
         #[test]
         fn prop_snp_brute(ref elements in vec(1_i32..1000, 1..10)) {
-            compare_snp_brute(elements, 4)
+            compare_partitionings(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 4);
        }
     }
     #[test]
@@ -223,11 +137,6 @@ mod tests {
             Subset::new(0b11000, &elements),
         ];
         assert_eq!(snp_results, expected);
-    }
-    #[test]
-    fn unit_snp_2() {
-        let elements = [5, 5, 4, 4, 3];
-        compare_snp_brute(&elements, 2);
     }
     #[bench]
     fn bench_snp(b: &mut Bencher) {

@@ -91,33 +91,13 @@ mod tests {
     extern crate test;
     use self::test::Bencher;
     use benchmark_data;
-    use gcc::find_best_partitioning;
     use proptest::collection::vec;
     use rnp::rnp;
+    use select::{compare_partitionings, PartitionMethod};
     proptest! {
         #[test]
         fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
-            let (gcc_results, _) = find_best_partitioning( &elements, 4);
-            let gcc_sums : Vec<i32> = gcc_results.to_vec().into_iter().map(|p| p.sum).collect();
-            let gcc_score = gcc_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
-            let rnp_results = rnp(&elements);
-            let rnp_sums : Vec<i32> = rnp_results.to_vec().into_iter().map(|p| p.sum).collect();
-            let rnp_score = rnp_sums.iter().max().unwrap() - gcc_sums.iter().min().unwrap();
-            /*
-            let mut gcc_sorted : Vec<Vec<i32>> = gcc_results.iter_mut().map(|p| {
-                let mut els = p.to_vec();
-                els.sort();
-                els
-            }).collect();
-            gcc_sorted.sort();
-            let mut rnp_sorted : Vec<Vec<i32>> = rnp_results.to_vec().into_iter().map(|els| {
-                let mut vec = els.to_vec();
-                vec.sort();
-                vec
-            }).collect();
-            rnp_sorted.sort();
-            */
-            assert_eq!(rnp_score, gcc_score);
+            compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
        }
     }
     #[bench]

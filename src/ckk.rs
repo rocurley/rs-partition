@@ -53,6 +53,9 @@ impl<T: Arith> KKPartition<T> {
     pub fn score(&self) -> T {
         self.left.sum
     }
+    pub fn to_vec(&self) -> Vec<Subset<T, u64>> {
+        vec![self.left.clone(), self.right.clone()]
+    }
 }
 
 pub fn kk<T: Arith>(elements: &[T]) -> KKPartition<T> {
