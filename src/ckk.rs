@@ -164,8 +164,13 @@ pub fn ckk<T: Arith>(elements: &[T]) -> KKPartition<T> {
 }
 
 pub fn from_subset<T: Arith>(subset: &Subset<T, u64>, elements: &[T]) -> KKPartition<T> {
-    let mut best_directions = Vec::with_capacity(elements.len());
-    let mut directions = Vec::with_capacity(elements.len());
+    let masked_elements = subset.to_vec(elements);
+    ckk(&masked_elements)
+    //reconstruct_ckk need to take masked_elements, and at that point might as well just use ckk.
+    /*
+    let count = subset.mask.count_ones();
+    let mut best_directions = Vec::with_capacity(count as usize);
+    let mut directions = Vec::with_capacity(count as usize);
     let mut best = elements.iter().cloned().sum();
     let mut work_elements: Vec<T> = subset.elements(elements).collect();
     let sum = subset.sum;
@@ -177,6 +182,7 @@ pub fn from_subset<T: Arith>(subset: &Subset<T, u64>, elements: &[T]) -> KKParti
         &mut best_directions,
     );
     reconstruct_ckk(elements, best_directions)
+    */
 }
 
 // When ckk_raw returns, elements must:

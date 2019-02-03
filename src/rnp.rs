@@ -1,5 +1,6 @@
 use arith::Arith;
 use ckk::{from_subset, n_kk, KKPartition};
+use std::cmp;
 use std::collections::BinaryHeap;
 use subset::Subset;
 
@@ -31,46 +32,28 @@ impl<T: Arith> RNPResult<T> {
 
 pub fn rnp<T: Arith>(elements: &[T]) -> RNPResult<T> {
     let kk_result = n_kk(elements, 4);
-    let mut upper_bound = kk_result.delta();
-    let mut best = None;
+    let mut upper_bound = kk_result.score();
+    let mut best = RNPResult::KKResult(kk_result.partitions);
     let heap: BinaryHeap<KKPartition<T>> = elements
         .iter()
         .enumerate()
         .map(|(i, _)| KKPartition::singleton(i, elements))
         .collect();
     rnp_helper(elements, heap, &mut upper_bound, &mut best);
-    best.unwrap_or_else(|| RNPResult::KKResult(kk_result.partitions))
+    best
 }
 
 fn rnp_helper<T: Arith>(
     elements: &[T],
     mut heap: BinaryHeap<KKPartition<T>>,
     upper_bound: &mut T,
-    best: &mut Option<RNPResult<T>>,
+    best: &mut RNPResult<T>,
 ) {
     let mut first = heap.pop().expect("heap is empty");
     match heap.pop() {
-        None => {
-            if first.score() / 2.into() < *upper_bound {
-                let left = from_subset(&first.left, elements);
-                if (left.score() + first.score()) / 2.into() < *upper_bound {
-                    let right = from_subset(&first.right, elements);
-                    let score = (first.score() + right.score() + left.score()) / 2.into();
-                    if score < *upper_bound {
-                        *upper_bound = score;
-                        *best = Some(RNPResult::EvenSplit(
-                            Box::new(RNPResult::TwoWay(left)),
-                            Box::new(RNPResult::TwoWay(right)),
-                        ));
-                    }
-                }
-            }
-        }
         Some(snd) => {
-            let rest_score = snd.score() + heap.iter().map(|p| p.score()).sum();
-            if (first.score() > rest_score)
-                && ((first.score() - rest_score) / 2.into() > *upper_bound)
-            {
+            //TODO: 2 -> n/2
+            if first.score() > T::from(2) * (*upper_bound - 1.into()) {
                 return;
             }
             let mut new_heap = heap.clone();
@@ -83,6 +66,24 @@ fn rnp_helper<T: Arith>(
             heap.push(first);
             rnp_helper(elements, heap, upper_bound, best);
         }
+        None => {
+            if first.score() > T::from(2) * (*upper_bound - 1.into()) {
+                return;
+            }
+            let left = from_subset(&first.left, elements);
+            if left.score() >= *upper_bound {
+                return;
+            }
+            let right = from_subset(&first.right, elements);
+            let score = cmp::max(left.score(), right.score());
+            if score < *upper_bound {
+                *upper_bound = score;
+                *best = RNPResult::EvenSplit(
+                    Box::new(RNPResult::TwoWay(left)),
+                    Box::new(RNPResult::TwoWay(right)),
+                );
+            }
+        }
     }
 }
 
@@ -94,6 +95,17 @@ mod tests {
     use proptest::collection::vec;
     use rnp::rnp;
     use select::{compare_partitionings, PartitionMethod};
+    #[test]
+    fn unit_rnp_gcc_small() {
+        let elements = [3, 3, 8, 4, 4, 3, 7];
+        compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
+    }
+    proptest! {
+        #[test]
+        fn prop_rnp_gcc_small(ref elements in vec(1_i32..10, 1..8)) {
+            compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
+       }
+    }
     proptest! {
         #[test]
         fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
