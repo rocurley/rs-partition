@@ -1,4 +1,5 @@
 use arith::Arith;
+use ckk;
 use ckk::n_kk;
 use ess::biased_iterate_subsets_in_range;
 use std::cmp;
@@ -39,7 +40,13 @@ struct SNP<'a, T> {
     mask: u64,
     current_partitioning: &'a mut Vec<Subset<T, u64>>,
     best_partitioning: &'a mut Vec<Subset<T, u64>>,
+    //Upper bound on score that we're interested in. Corresponds to the best partitioning seen
+    //so far: if you can't beat the best so far, why bother? Seeded with n_kk.
     ub: T,
+    //Absolute best score that this branch can achieve. This starts with a perfect partitioning,
+    //but can be raised if prior passes paritioned off something with a higher sum. Achieving
+    //or beating this immediately terminate the branch, since further improvement would either
+    //be useless (in the case of higher-sum prior passes) or impossible (perfect partitioning).
     min_score: T,
     total_remaining: T,
 }
@@ -51,11 +58,25 @@ impl<'a, T: Arith> SNP<'a, T> {
             let last_subset = Subset::new(self.mask, self.elements);
             assert!(range.contains(&last_subset.sum));
             let score = cmp::max(self.min_score, last_subset.sum);
-            self.current_partitioning.push(last_subset);
             self.best_partitioning.clone_from(self.current_partitioning);
-            self.current_partitioning.pop();
-            self.current_partitioning.pop();
+            self.best_partitioning.push(last_subset);
             return Some(score);
+        }
+        if self.n == 2 && self.mask.count_ones() < 12 {
+            let masked_subset = Subset {
+                mask: self.mask,
+                sum: self.total_remaining,
+            };
+            let partitioning = ckk::from_subset(&masked_subset, self.elements);
+            let score = partitioning.score();
+            if score >= self.ub {
+                return None;
+            }
+            self.best_partitioning
+                .clone_from(&self.current_partitioning);
+            self.best_partitioning.push(partitioning.left);
+            self.best_partitioning.push(partitioning.right);
+            return Some(cmp::max(self.min_score, score));
         }
         let mut subsets_iterator = biased_iterate_subsets_in_range(self.mask, self.elements, range);
         let mut return_value = None;
@@ -87,8 +108,8 @@ impl<'a, T: Arith> SNP<'a, T> {
                     self.n,
                 ));
             }
+            self.current_partitioning.pop();
         }
-        self.current_partitioning.pop();
         return_value
     }
 }
@@ -100,31 +121,31 @@ mod tests {
     use self::test::Bencher;
     use benchmark_data;
     use proptest::collection::vec;
-    use select::{compare_partitionings, PartitionMethod};
+    use select::{compare_partitioning_methods, PartitionMethod};
     use snp::snp;
     use subset::Subset;
     proptest! {
         #[test]
         fn prop_snp_gcc(ref elements in vec(1_i32..100, 1..13), n in (2_u8..5)) {
-            compare_partitionings(PartitionMethod::GCC, PartitionMethod::SNP, &elements, n);
+            compare_partitioning_methods(PartitionMethod::GCC, PartitionMethod::SNP, &elements, n);
        }
     }
     proptest! {
         #[test]
         fn prop_snp_ckk(ref elements in vec(1_i32..100, 1..10)) {
-            compare_partitionings(PartitionMethod::CKK, PartitionMethod::SNP, &elements, 2);
+            compare_partitioning_methods(PartitionMethod::CKK, PartitionMethod::SNP, &elements, 2);
        }
     }
     proptest! {
         #[test]
         fn prop_snp_brute_simple(ref elements in vec(1_i32..6, 1..6)) {
-            compare_partitionings(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 2);
+            compare_partitioning_methods(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 2);
        }
     }
     proptest! {
         #[test]
         fn prop_snp_brute(ref elements in vec(1_i32..1000, 1..10)) {
-            compare_partitionings(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 4);
+            compare_partitioning_methods(PartitionMethod::Brute, PartitionMethod::SNP, &elements, 4);
        }
     }
     #[test]

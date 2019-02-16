@@ -94,22 +94,22 @@ mod tests {
     use benchmark_data;
     use proptest::collection::vec;
     use rnp::rnp;
-    use select::{compare_partitionings, PartitionMethod};
+    use select::{compare_partitioning_methods, PartitionMethod};
     #[test]
     fn unit_rnp_gcc_small() {
         let elements = [3, 3, 8, 4, 4, 3, 7];
-        compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
+        compare_partitioning_methods(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
     }
     proptest! {
         #[test]
         fn prop_rnp_gcc_small(ref elements in vec(1_i32..10, 1..8)) {
-            compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
+            compare_partitioning_methods(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
        }
     }
     proptest! {
         #[test]
         fn prop_rnp_gcc(ref elements in vec(1_i32..100, 1..10)) {
-            compare_partitionings(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
+            compare_partitioning_methods(PartitionMethod::RNP, PartitionMethod::GCC, &elements, 4);
        }
     }
     #[bench]

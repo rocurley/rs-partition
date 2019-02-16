@@ -38,7 +38,7 @@ fn all_partitions<'a, T: Arith>(
     }
 }
 
-pub fn brute_force<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
+pub fn partition<T: Arith>(elements: &[T], n: u8) -> Vec<Subset<T, u64>> {
     let mask = (1 << elements.len()) - 1;
     let total = elements.iter().fold(T::from(0), |acc, &x| acc + x);
     let mut out = all_partitions(mask, elements, n, total)

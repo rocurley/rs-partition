@@ -45,7 +45,7 @@ pub fn partition_using<T: Arith>(
             }
             rnp::rnp(elements).to_vec()
         }
-        PartitionMethod::Brute => brute::brute_force(elements, n),
+        PartitionMethod::Brute => brute::partition(elements, n),
     }
 }
 
@@ -61,7 +61,12 @@ fn pretty_partitioning<T: Arith>(
 }
 
 #[cfg(test)]
-pub fn compare_partitionings(m1: PartitionMethod, m2: PartitionMethod, elements: &[i32], n: u8) {
+pub fn compare_partitioning_methods(
+    m1: PartitionMethod,
+    m2: PartitionMethod,
+    elements: &[i32],
+    n: u8,
+) {
     let results_1 = partition_using(m1, elements, n);
     let results_2 = partition_using(m2, elements, n);
     let score_1 = results_1.iter().map(|subset| subset.sum).max().unwrap();
@@ -69,7 +74,7 @@ pub fn compare_partitionings(m1: PartitionMethod, m2: PartitionMethod, elements:
     assert_eq!(
         results_1.len(),
         n as usize,
-        "{:?} had wrong number of elements. Expected length was {}, got {:?}",
+        "{:?} had wrong number of partitions. Expected length was {}, got {:?}",
         m1,
         n,
         pretty_partitioning(&results_1, elements),
@@ -77,7 +82,7 @@ pub fn compare_partitionings(m1: PartitionMethod, m2: PartitionMethod, elements:
     assert_eq!(
         results_2.len(),
         n as usize,
-        "{:?} had wrong number of elements. Expected length was {}, got {:?}",
+        "{:?} had wrong number of partitions. Expected length was {}, got {:?}",
         m2,
         n,
         pretty_partitioning(&results_2, elements),

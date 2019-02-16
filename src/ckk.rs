@@ -329,9 +329,13 @@ pub fn n_kk<T: Arith>(elements: &[T], n: u8) -> Partitioning<T> {
 mod tests {
     extern crate test;
     use self::test::Bencher;
+    use arith::Arith;
     use benchmark_data;
+    use ckk;
     use ckk::{ckk, ckk_raw, kk, n_kk, old, old_raw};
     use proptest::collection::vec;
+    use proptest::strategy::Strategy;
+    use subset::Subset;
     proptest! {
         #[test]
         fn prop_compare_raw(ref elements in vec(1_i32..100, 1..10)) {
@@ -362,6 +366,42 @@ mod tests {
         let elements = vec![2, 3, 4, 5];
         let partition = ckk(&elements);
         assert_eq!(partition.score(), 7, "partiton was {:?}", partition);
+    }
+    fn elements_and_subset<S, T>(vec_strategy: S) -> impl Strategy<Value = (Vec<T>, Subset<T, u64>)>
+    where
+        T: Arith,
+        S: Strategy<Value = Vec<T>>,
+    {
+        vec_strategy.prop_flat_map(|vec| {
+            (1_u64..1 << vec.len()).prop_map(move |mask| (vec.clone(), Subset::new(mask, &vec)))
+        })
+    }
+    proptest! {
+        #[test]
+        fn from_subset(ref elements_subset in elements_and_subset(vec(1_i32..100, 1..30))) {
+            let (elements, subset) = elements_subset;
+            let masked_elements = subset.to_vec(&elements);
+
+            let partition_1 = ckk(&masked_elements);
+            let mut partition_1_vec = vec![
+                partition_1.left.to_vec(&masked_elements),
+                partition_1.right.to_vec(&masked_elements),
+            ];
+            for v in partition_1_vec.iter_mut() {
+                v.sort();
+            }
+
+            let partition_2 = ckk::from_subset(&subset, &elements);
+            let mut partition_2_vec = vec![
+                partition_2.left.to_vec(&masked_elements),
+                partition_2.right.to_vec(&masked_elements),
+            ];
+            for v in partition_2_vec.iter_mut() {
+                v.sort();
+            }
+
+            assert_eq!(partition_1_vec, partition_2_vec);
+       }
     }
     proptest! {
         #[test]
