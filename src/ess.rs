@@ -11,7 +11,7 @@ pub struct ESS<T, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subse
     ascending: LazyQueue<Subset<T, u64>, I1>,
     ascending_index: usize,
     descending: Peekable<I2>,
-    pub range: Range<T>, //TODO: make this private, add a "replace range" method
+    range: Range<T>,
 }
 
 #[derive(Debug)]
@@ -75,6 +75,7 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
             }
             (true, false) => {
                 //Too small. Descending will only decrease, so drop the current ascending.
+                assert_eq!(self.ascending_index, 0);
                 self.ascending.pop();
                 self.next()
             }
@@ -82,6 +83,26 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
         }
     }
 }
+
+impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
+    ESS<T, I1, I2> where
+{
+    pub fn restrict_range(&mut self, range: Range<T>) -> Option<()> {
+        if range.is_empty() {
+            self.range = range;
+            return Some(());
+        }
+        if range.start < self.range.start {
+            return None;
+        }
+        if range.end > self.range.end {
+            return None;
+        }
+        self.range = range;
+        Some(())
+    }
+}
+
 pub fn iterate_subsets_in_range<T: Arith>(
     mask: u64,
     elements: &[T],
@@ -133,22 +154,10 @@ impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T
 impl<T: Arith, I1: Iterator<Item = Subset<T, u64>>, I2: Iterator<Item = Subset<T, u64>>>
     BiasedESS<T, I1, I2> where
 {
-    //TODO: move this into ESS
     pub fn restrict_range(&mut self, range: Range<T>) -> Option<()> {
         let shifted_range =
             cmp::max(0.into(), range.start - self.first.sum)..(range.end - self.first.sum);
-        if shifted_range.is_empty() {
-            self.ess.range = shifted_range;
-            return Some(());
-        }
-        if shifted_range.start < self.ess.range.start {
-            return None;
-        }
-        if shifted_range.end > self.ess.range.end {
-            return None;
-        }
-        self.ess.range = shifted_range;
-        Some(())
+        self.ess.restrict_range(shifted_range)
     }
 }
 
